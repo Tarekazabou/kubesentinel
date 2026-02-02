@@ -1,4 +1,4 @@
-# Go-CSPM: Cloud Security Posture Management Framework
+# KubeSentinel: Cloud Security Posture Management Framework
 
 A high-performance security orchestration system that bridges static configuration security and dynamic runtime behavior monitoring for Kubernetes environments.
 

@@ -1,4 +1,4 @@
-module github.com/yourusername/go-cspm
+module github.com/yourusername/kubesentinel
 
 go 1.21
 

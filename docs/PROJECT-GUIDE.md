@@ -1,6 +1,6 @@
-# Go-CSPM Complete Project Guide
+# KubeSentinel Complete Project Guide
 
-Welcome to the Go-CSPM project! This guide provides everything you need to understand, build, and deploy this Cloud Security Posture Management framework.
+Welcome to the KubeSentinel project! This guide provides everything you need to understand, build, and deploy this Cloud Security Posture Management framework.
 
 ## 🎯 What You've Got
 
@@ -14,8 +14,8 @@ This is a **production-ready foundation** for a comprehensive CSPM system that:
 ## 📂 Project Structure
 
 ```
-go-cspm/
-├── 📁 cmd/go-cspm/           # CLI Application
+kubesentinel/
+├── 📁 cmd/kubesentinel/      # CLI Application
 │   └── main.go               # Entry point with Cobra commands
 │
 ├── 📁 internal/              # Core Implementation (not exported)
@@ -77,7 +77,7 @@ make --version
 ### Build and Test
 ```bash
 # 1. Navigate to project directory
-cd go-cspm
+cd kubesentinel
 
 # 2. Install dependencies
 make deps
@@ -86,7 +86,7 @@ make deps
 make build
 
 # 4. Test static analysis
-./bin/go-cspm scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./examples/k8s-manifests
 
 # Expected output:
 # ✓ Scanning manifests at: ./examples/k8s-manifests
@@ -99,7 +99,7 @@ make build
 
 ### Start AI Service (Terminal 2)
 ```bash
-cd go-cspm
+cd kubesentinel
 make run-ai
 
 # Expected output:
@@ -111,7 +111,7 @@ make run-ai
 ### Test End-to-End (requires Falco)
 ```bash
 # Start runtime monitoring
-./bin/go-cspm monitor --cluster minikube
+./bin/kubesentinel monitor --cluster minikube
 ```
 
 ## 📖 Understanding the Five Layers
@@ -123,7 +123,7 @@ make run-ai
 
 ```bash
 # Example: Block deployment with critical issues
-./bin/go-cspm scan --path ./k8s-manifests --severity critical
+./bin/kubesentinel scan --path ./k8s-manifests --severity critical
 if [ $? -ne 0 ]; then
   echo "Security violations found! Blocking deployment."
   exit 1
@@ -144,7 +144,7 @@ fi
 
 ```bash
 # Monitor production namespace
-./bin/go-cspm monitor --namespace production --workers 8
+./bin/kubesentinel monitor --namespace production --workers 8
 ```
 
 **Features**:
@@ -198,7 +198,7 @@ forensics/
 
 ```bash
 # Generate report
-./bin/go-cspm report --from 2024-01-01 --to 2024-01-31 --format markdown
+./bin/kubesentinel report --from 2024-01-01 --to 2024-01-31 --format markdown
 ```
 
 **Report includes**:
@@ -310,10 +310,10 @@ make lint
 make build
 
 # Test static analysis
-./bin/go-cspm scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./examples/k8s-manifests
 
 # Test with custom config
-./bin/go-cspm scan --config ./my-config.yaml
+./bin/kubesentinel scan --config ./my-config.yaml
 ```
 
 ### 3. Run Full Suite
@@ -347,15 +347,15 @@ make benchmark
 ### Create Custom Rule
 1. Add YAML to `configs/rules/`
 2. Define checks
-3. Test: `go-cspm scan --rules ./configs/rules/`
+3. Test: `kubesentinel scan --rules ./configs/rules/`
 
 ### Debug Issues
 ```bash
 # Verbose mode
-./bin/go-cspm scan --path ./manifests --verbose
+./bin/kubesentinel scan --path ./manifests --verbose
 
 # Check logs
-tail -f ./logs/go-cspm.log
+tail -f ./logs/kubesentinel.log
 
 # Test specific component
 go test -v ./internal/static/

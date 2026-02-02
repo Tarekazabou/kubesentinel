@@ -1,10 +1,10 @@
-# Go-CSPM Quick Reference
+# KubeSentinel Quick Reference
 
 ## Project Structure
 
 ```
-go-cspm/
-├── cmd/go-cspm/              # CLI entry point
+kubesentinel/
+├── cmd/kubesentinel/         # CLI entry point
 │   └── main.go              # Command definitions
 ├── internal/                 # Core implementation
 │   ├── static/              # Static analysis
@@ -48,16 +48,16 @@ make clean       # Clean artifacts
 
 ### Static Analysis
 ```bash
-./bin/go-cspm scan --path ./manifests
-./bin/go-cspm scan --severity high
-./bin/go-cspm scan --rules ./custom-rules.yaml
+./bin/kubesentinel scan --path ./manifests
+./bin/kubesentinel scan --severity high
+./bin/kubesentinel scan --rules ./custom-rules.yaml
 ```
 
 ### Runtime Monitoring
 ```bash
-./bin/go-cspm monitor
-./bin/go-cspm monitor --namespace prod
-./bin/go-cspm monitor --deployment api
+./bin/kubesentinel monitor
+./bin/kubesentinel monitor --namespace prod
+./bin/kubesentinel monitor --deployment api
 ```
 
 ### AI Service
@@ -68,8 +68,8 @@ curl http://localhost:5000/health    # Health check
 
 ### Reporting
 ```bash
-./bin/go-cspm report --incident-id <id>
-./bin/go-cspm report --from 2024-01-01 --to 2024-12-31
+./bin/kubesentinel report --incident-id <id>
+./bin/kubesentinel report --from 2024-01-01 --to 2024-12-31
 ```
 
 ## Key Concepts
@@ -226,20 +226,20 @@ runtime:
 # .gitlab-ci.yml
 security_scan:
   script:
-    - go-cspm scan --path ./k8s --severity high
+    - kubesentinel scan --path ./k8s --severity high
   allow_failure: false
 ```
 
 ### Production Monitoring
 ```bash
 # Monitor critical namespace
-go-cspm monitor --namespace production --workers 8
+kubesentinel monitor --namespace production --workers 8
 ```
 
 ### Incident Investigation
 ```bash
 # Generate report
-go-cspm report --incident-id abc123 --format markdown
+kubesentinel report --incident-id abc123 --format markdown
 ```
 
 ## File Locations
@@ -252,14 +252,14 @@ go-cspm report --incident-id abc123 --format markdown
 ### Output
 - Forensics: `./forensics/*.json`
 - Reports: `./reports/*.{md,json,html}`
-- Binary: `./bin/go-cspm`
+- Binary: `./bin/kubesentinel`
 
 ## Development
 
 ### Adding New Rule
 1. Create YAML in `configs/rules/`
 2. Define checks
-3. Test with `go-cspm scan`
+3. Test with `kubesentinel scan`
 
 ### Modifying Detection
 1. Edit `internal/runtime/processor.go`

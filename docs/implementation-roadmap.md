@@ -1,6 +1,6 @@
-# Go-CSPM Implementation Roadmap
+# KubeSentinel Implementation Roadmap
 
-This document provides a structured approach to implementing the Go-CSPM project, broken down into phases with specific tasks, estimated timelines, and success criteria.
+This document provides a structured approach to implementing the KubeSentinel project, broken down into phases with specific tasks, estimated timelines, and success criteria.
 
 ## Project Overview
 
@@ -51,7 +51,7 @@ This document provides a structured approach to implementing the Go-CSPM project
 ### Testing
 ```bash
 # Test with example manifests
-./bin/go-cspm scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./examples/k8s-manifests
 # Should detect violations in insecure-pod.yaml
 ```
 
@@ -99,7 +99,7 @@ This document provides a structured approach to implementing the Go-CSPM project
 ### Testing
 ```bash
 # Start monitor in test environment
-./bin/go-cspm monitor --cluster minikube --workers 4
+./bin/kubesentinel monitor --cluster minikube --workers 4
 
 # Generate test events
 kubectl run test-pod --image=busybox --restart=Never -- sh -c "sleep 3600"
@@ -160,7 +160,7 @@ curl -X POST http://localhost:5000/predict \
   -d '{"features": {"process_frequency": 10, ...}}'
 
 # Run integrated test
-./bin/go-cspm monitor --config ./config.yaml
+./bin/kubesentinel monitor --config ./config.yaml
 ```
 
 ---
@@ -212,7 +212,7 @@ curl -X POST http://localhost:5000/predict \
 ls -lh ./forensics/
 
 # Test retrieval
-./bin/go-cspm report --incident-id <id>
+./bin/kubesentinel report --incident-id <id>
 ```
 
 ---
@@ -469,7 +469,7 @@ git push origin feature/static-scanner
 
 ## Conclusion
 
-This roadmap provides a structured path to building Go-CSPM. Remember:
+This roadmap provides a structured path to building KubeSentinel. Remember:
 
 1. **Start simple**: Get MVP working first
 2. **Iterate quickly**: Release early, gather feedback

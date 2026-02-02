@@ -1,10 +1,10 @@
-# Go-CSPM: Cloud Security Posture Management Framework
+# KubeSentinel: Cloud Security Posture Management Framework
 
 A high-performance security orchestration system that bridges static configuration security and dynamic runtime behavior monitoring for Kubernetes environments.
 
 ## 🎯 Project Overview
 
-Go-CSPM is a comprehensive security framework that operates across five critical layers:
+KubeSentinel is a comprehensive security framework that operates across five critical layers:
 
 1. **Static Policy Engine** - Pre-deployment manifest scanning
 2. **Live Stream Monitor** - Runtime event processing via Falco
@@ -16,7 +16,7 @@ Go-CSPM is a comprehensive security framework that operates across five critical
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         Go-CSPM CLI                          │
+│                      KubeSentinel CLI                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
 │  ┌──────────────┐         ┌──────────────────────────┐      │
@@ -56,8 +56,8 @@ Go-CSPM is a comprehensive security framework that operates across five critical
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/go-cspm.git
-cd go-cspm
+git clone https://github.com/yourusername/kubesentinel.git
+cd kubesentinel
 
 # Install dependencies
 make deps
@@ -66,18 +66,18 @@ make deps
 make build
 
 # Run static analysis on manifests
-./bin/go-cspm scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./examples/k8s-manifests
 
 # Start runtime monitoring
-./bin/go-cspm monitor --cluster minikube
+./bin/kubesentinel monitor --cluster minikube
 ```
 
 ## 📁 Project Structure
 
 ```
-go-cspm/
+kubesentinel/
 ├── cmd/
-│   └── go-cspm/          # CLI entry point
+│   └── kubesentinel/     # CLI entry point
 │       └── main.go
 ├── internal/
 │   ├── static/           # Static analysis engine
@@ -152,10 +152,10 @@ reporting:
 
 ```bash
 # Scan Kubernetes manifests
-go-cspm scan --path ./k8s-manifests --format json
+kubesentinel scan --path ./k8s-manifests --format json
 
 # Scan with custom rules
-go-cspm scan --path ./deployments --rules ./custom-rules.yaml
+kubesentinel scan --path ./deployments --rules ./custom-rules.yaml
 
 # Exit code 0: No violations
 # Exit code 1: Violations found
@@ -165,23 +165,23 @@ go-cspm scan --path ./deployments --rules ./custom-rules.yaml
 
 ```bash
 # Monitor with default settings
-go-cspm monitor
+kubesentinel monitor
 
 # Monitor with custom config
-go-cspm monitor --config ./my-config.yaml --namespace production
+kubesentinel monitor --config ./my-config.yaml --namespace production
 
 # Monitor specific workload
-go-cspm monitor --deployment my-app
+kubesentinel monitor --deployment my-app
 ```
 
 ### 3. Generate Forensic Report
 
 ```bash
 # Generate report for specific incident
-go-cspm report --incident-id abc123 --format markdown
+kubesentinel report --incident-id abc123 --format markdown
 
 # Generate comprehensive timeline
-go-cspm report --from "2024-01-01" --to "2024-01-31"
+kubesentinel report --from "2024-01-01" --to "2024-01-31"
 ```
 
 ## 🔍 Key Features

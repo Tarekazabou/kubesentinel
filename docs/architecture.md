@@ -1,8 +1,8 @@
-# Go-CSPM Architecture Deep Dive
+# KubeSentinel Architecture Deep Dive
 
 ## Overview
 
-Go-CSPM implements a five-layer security architecture that combines static analysis, runtime monitoring, AI-powered detection, forensic storage, and automated reporting.
+KubeSentinel implements a five-layer security architecture that combines static analysis, runtime monitoring, AI-powered detection, forensic storage, and automated reporting.
 
 ## Architecture Layers
 
@@ -331,7 +331,7 @@ Implement custom storage:
 security_scan:
   stage: test
   script:
-    - go-cspm scan --path ./k8s --severity high
+    - kubesentinel scan --path ./k8s --severity high
   allow_failure: false
 ```
 
@@ -342,8 +342,8 @@ containers:
 - name: app
   image: myapp:latest
 - name: cspm
-  image: go-cspm:latest
-  command: ["go-cspm", "monitor"]
+  image: kubesentinel:latest
+  command: ["kubesentinel", "monitor"]
   volumeMounts:
   - name: falco-socket
     mountPath: /var/run/falco

@@ -1,6 +1,6 @@
-# Getting Started with Go-CSPM
+# Getting Started with KubeSentinel
 
-This guide will walk you through setting up and using Go-CSPM for securing your Kubernetes workloads.
+This guide will walk you through setting up and using KubeSentinel for securing your Kubernetes workloads.
 
 ## Prerequisites
 
@@ -18,8 +18,8 @@ Before you begin, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/go-cspm.git
-cd go-cspm
+git clone https://github.com/yourusername/kubesentinel.git
+cd kubesentinel
 
 # Set up development environment
 make setup-dev
@@ -30,14 +30,14 @@ make deps
 # Build the binary
 make build
 
-# The binary is now available at ./bin/go-cspm
+# The binary is now available at ./bin/kubesentinel
 ```
 
 ### 2. Run Your First Scan
 
 ```bash
 # Scan example manifests
-./bin/go-cspm scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./examples/k8s-manifests
 
 # Expected output:
 # Scanning manifests at: ./examples/k8s-manifests
@@ -62,7 +62,7 @@ make run-ai
 
 ```bash
 # In another terminal (requires Falco)
-./bin/go-cspm monitor --cluster minikube
+./bin/kubesentinel monitor --cluster minikube
 
 # Expected output:
 # Starting runtime monitor...
@@ -107,7 +107,7 @@ systemctl status falco
 ls -la /var/run/falco/falco.sock
 ```
 
-### Configuring Go-CSPM
+### Configuring KubeSentinel
 
 Edit `config.yaml` to customize settings:
 
@@ -153,7 +153,7 @@ security_scan:
     - make deps
     - make build
   script:
-    - ./bin/go-cspm scan --path ./manifests --severity high --format json
+    - ./bin/kubesentinel scan --path ./manifests --severity high --format json
   artifacts:
     reports:
       codequality: scan-results.json
@@ -177,38 +177,38 @@ jobs:
         with:
           go-version: 1.21
       
-      - name: Build Go-CSPM
+      - name: Build KubeSentinel
         run: |
           make deps
           make build
       
       - name: Run Security Scan
         run: |
-          ./bin/go-cspm scan --path ./k8s-manifests
+          ./bin/kubesentinel scan --path ./k8s-manifests
 ```
 
 ### Runtime Monitoring
 
 **Monitor Specific Namespace:**
 ```bash
-./bin/go-cspm monitor --namespace production
+./bin/kubesentinel monitor --namespace production
 ```
 
 **Monitor Specific Deployment:**
 ```bash
-./bin/go-cspm monitor --deployment api-server
+./bin/kubesentinel monitor --deployment api-server
 ```
 
 **Custom Configuration:**
 ```bash
-./bin/go-cspm monitor --config ./custom-config.yaml
+./bin/kubesentinel monitor --config ./custom-config.yaml
 ```
 
 ### Generating Reports
 
 **Generate Report for Time Range:**
 ```bash
-./bin/go-cspm report \
+./bin/kubesentinel report \
   --from "2024-01-01" \
   --to "2024-01-31" \
   --format markdown \
@@ -217,7 +217,7 @@ jobs:
 
 **Generate Report for Specific Incident:**
 ```bash
-./bin/go-cspm report \
+./bin/kubesentinel report \
   --incident-id abc123 \
   --format json
 ```
@@ -263,7 +263,7 @@ Create a new file in `configs/rules/custom-rules.yaml`:
 
 ## Understanding Severity Levels
 
-Go-CSPM uses four severity levels:
+KubeSentinel uses four severity levels:
 
 - **CRITICAL**: Immediate security risk (e.g., privileged containers)
 - **HIGH**: Significant security concern (e.g., missing resource limits)
@@ -331,7 +331,7 @@ Each record contains:
 # Manually cleanup old records
 find ./forensics -name "*.json" -mtime +90 -delete
 
-# Or let Go-CSPM handle it automatically
+# Or let KubeSentinel handle it automatically
 # (configured via retention_days in config.yaml)
 ```
 
@@ -371,13 +371,13 @@ pip3 list | grep -E "flask|scikit|numpy"
 **Solution:**
 ```bash
 # Check rule files are loaded
-./bin/go-cspm scan --path ./manifests --rules ./configs/rules
+./bin/kubesentinel scan --path ./manifests --rules ./configs/rules
 
 # Verify manifest syntax
 kubectl apply --dry-run=client -f ./manifests/
 
 # Lower severity threshold
-./bin/go-cspm scan --path ./manifests --severity low
+./bin/kubesentinel scan --path ./manifests --severity low
 ```
 
 ### Problem: High memory usage during monitoring

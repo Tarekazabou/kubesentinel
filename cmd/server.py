@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI/ML Service for Go-CSPM
+AI/ML Service for KubeSentinel
 Provides behavioral anomaly detection using scikit-learn
 """
 

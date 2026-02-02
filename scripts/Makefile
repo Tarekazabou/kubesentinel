@@ -1,9 +1,9 @@
 .PHONY: all build clean test run-static run-monitor run-ai deps docker-build help
 
 # Variables
-BINARY_NAME=go-cspm
+BINARY_NAME=kubesentinel
 BUILD_DIR=./bin
-MAIN_PATH=./cmd/go-cspm
+MAIN_PATH=./cmd/kubesentinel
 GO=go
 PYTHON=python3
 PIP=pip3
@@ -99,12 +99,12 @@ uninstall: ## Uninstall binary from /usr/local/bin
 
 docker-build: ## Build Docker image
 	@echo "Building Docker image..."
-	docker build -t go-cspm:$(VERSION) .
-	docker tag go-cspm:$(VERSION) go-cspm:latest
+	docker build -t kubesentinel:$(VERSION) .
+	docker tag kubesentinel:$(VERSION) kubesentinel:latest
 
 docker-run: ## Run in Docker
 	@echo "Running in Docker..."
-	docker run -v /var/run/falco:/var/run/falco -v $(PWD)/config.yaml:/app/config.yaml go-cspm:latest monitor
+	docker run -v /var/run/falco:/var/run/falco -v $(PWD)/config.yaml:/app/config.yaml kubesentinel:latest monitor
 
 setup-dev: ## Setup development environment
 	@echo "Setting up development environment..."
