@@ -1,0 +1,54 @@
+- id: CUSTOM-001
+  name: Detect Exposed SSH Ports
+  description: Container exposes SSH port 22 which creates an attack surface
+  severity: high
+  kind: [Pod, Deployment]
+  checks:
+    - path: spec.containers.ports.containerPort
+      operator: equals
+      value: 22
+  remediation: Remove SSH port exposure. Use kubectl exec or alternative secure access methods
+
+- id: CUSTOM-002
+  name: Disallow Latest Image Tag
+  description: Using 'latest' tag can lead to unpredictable deployments
+  severity: medium
+  kind: [Pod, Deployment]
+  checks:
+    - path: spec.containers.image
+      operator: contains
+      value: ":latest"
+  remediation: Use specific image tags (e.g., nginx:1.21.6) for reproducible deployments
+
+- id: CUSTOM-003
+  name: Require Network Policies
+  description: Deployments should have associated network policies for traffic control
+  severity: medium
+  kind: [Deployment]
+  checks:
+    - path: metadata.labels.network-policy
+      operator: notExists
+      value: null
+  remediation: Create a NetworkPolicy resource and label deployment with 'network-policy: enforced'
+
+- id: CUSTOM-004
+  name: Detect Dangerous Capabilities
+  description: Container has dangerous Linux capabilities enabled
+  severity: critical
+  kind: [Pod, Deployment]
+  checks:
+    - path: spec.containers.securityContext.capabilities.add
+      operator: contains
+      value: "SYS_ADMIN"
+  remediation: Remove SYS_ADMIN and other dangerous capabilities. Use minimal capability sets
+
+- id: CUSTOM-005
+  name: Require Pod Security Standards
+  description: Namespace should enforce pod security standards
+  severity: high
+  kind: [Namespace]
+  checks:
+    - path: metadata.labels.pod-security.kubernetes.io/enforce
+      operator: notExists
+      value: null
+  remediation: Add label 'pod-security.kubernetes.io/enforce: restricted' to namespace

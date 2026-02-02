@@ -1,0 +1,29 @@
+static:
+  rules_path: "./configs/rules"
+  severity_threshold: "medium"
+  output_format: "json"
+
+runtime:
+  falco_socket: "unix:///var/run/falco/falco.sock"
+  buffer_size: 10000
+  workers: 4
+  namespace: ""  # Empty for all namespaces
+  deployment: "" # Empty for all deployments
+
+ai:
+  endpoint: "http://localhost:5000"
+  model_path: "./ai-module/models/baseline.pkl"
+  threshold: 0.75
+  health_check_interval: "30s"
+
+forensics:
+  storage_path: "./forensics"
+  retention_days: 90
+  max_size_mb: 1000
+  compression: true
+
+reporting:
+  formats: ["json", "markdown"]
+  output_path: "./reports"
+  include_statistics: true
+  include_timeline: true
