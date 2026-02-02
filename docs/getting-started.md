@@ -430,7 +430,7 @@ Review alerts weekly and adjust:
 - **Documentation**: `docs/`
 - **Issues**: GitHub Issues
 - **Discussions**: GitHub Discussions
-- **Email**: security@yourcompany.com
+- **Email**: tarek.azabou@supcom.tn
 
 ## Contributing
 
