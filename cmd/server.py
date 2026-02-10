@@ -7,6 +7,7 @@ Provides behavioral anomaly detection using scikit-learn
 from flask import Flask, request, jsonify
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from flask import send_from_directory
 import numpy as np
 import pickle
 import json
@@ -216,7 +217,9 @@ def health_check():
         'timestamp': datetime.now().isoformat(),
         'model_loaded': detector.model is not None
     })
-
+@app.route('/models/baseline.pkl', methods=['GET'])
+def download_model():
+    return send_from_directory('models', 'baseline.pkl', as_attachment=True)
 @app.route('/predict', methods=['POST'])
 def predict():
     """Anomaly prediction endpoint"""

@@ -2,8 +2,8 @@
 
 # Variables
 BINARY_NAME=kubesentinel
-BUILD_DIR=./bin
-MAIN_PATH=./cmd/kubesentinel
+BUILD_DIR=../bin
+MAIN_PATH=../cmd/kubesentinel
 GO=go
 PYTHON=python3
 PIP=pip3
@@ -12,8 +12,7 @@ PIP=pip3
 VERSION?=0.1.0
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT}"
-
+LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 all: deps build ## Build everything
 
 help: ## Show this help message
@@ -27,12 +26,12 @@ deps: ## Install dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
-	$(PIP) install -r ai-module/requirements.txt --break-system-packages
+	$(PIP) install -r requirements.txt --break-system-packages
 
 build: ## Build the Go binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	$(GO) build -buildvcs=false $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 build-linux: ## Build for Linux
@@ -81,7 +80,7 @@ run-monitor: build ## Start runtime monitoring
 
 run-ai: ## Start AI/ML service
 	@echo "Starting AI service..."
-	cd ai-module && $(PYTHON) server.py
+	cd ../cmd && $(PYTHON) server.py
 
 run-report: build ## Generate a sample report
 	@echo "Generating report..."
