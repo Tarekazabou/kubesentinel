@@ -1,0 +1,91 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Logs
+*.log
+logs/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so.*
+
+# Reports (keep generated ones but ignore build)
+reports/*.json
+reports/*.html
+reports/*.md
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+/node_modules
+go.sum
+
+# QoDo and automation tools
+.qodo/
+.github/workflows/auto-*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+~*
+
+# IDE specific
+*.iml
+.gradle/
