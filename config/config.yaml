@@ -4,7 +4,7 @@ static:
   output_format: "json"
 
 runtime:
-  falco_socket: "unix:///var/run/falco/falco.sock"
+  falco_socket: "unix:///run/falco/falco.sock"
   buffer_size: 10000
   workers: 4
   namespace: ""  # Empty for all namespaces

@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"kubesentinel/internal/runtime"
 	"kubesentinel/pkg/scanner"
 )
 
@@ -15,7 +18,6 @@ var (
 	version = "0.1.0"
 )
 
-// rootCmd represents the base command
 var rootCmd = &cobra.Command{
 	Use:   "kubesentinel",
 	Short: "Cloud Security Posture Management Framework",
@@ -24,7 +26,6 @@ static configuration security and dynamic runtime behavior monitoring for Kubern
 	Version: version,
 }
 
-// scanCmd handles static analysis of manifests
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Perform static analysis on Kubernetes manifests",
@@ -34,27 +35,24 @@ misconfigurations before deployment.`,
 		path, _ := cmd.Flags().GetString("path")
 		format, _ := cmd.Flags().GetString("format")
 		rulesPath, _ := cmd.Flags().GetString("rules")
-		severity, _ := cmd.Flags().GetString("severity") // optional – added for better control
+		severity, _ := cmd.Flags().GetString("severity")
 
 		if path == "" {
 			fmt.Println("Error: --path is required. Example: --path ./deploy")
 			os.Exit(1)
 		}
 
-		// Default values if flags not provided
 		if rulesPath == "" {
-			rulesPath = "./config/custom-rules.yaml" // or "../config/custom-rules.yaml"
+			rulesPath = "./config/rules"
 		}
 		if severity == "" {
 			severity = "medium"
 		}
 
 		fmt.Printf("Scanning manifests at: %s\n", path)
-		fmt.Printf("Output format: %s\n", format)
 		fmt.Printf("Using rules from: %s\n", rulesPath)
 		fmt.Printf("Minimum severity threshold: %s\n", severity)
 
-		// Prepare scanner configuration
 		config := &scanner.ScanConfig{
 			RulesPath:         rulesPath,
 			SeverityThreshold: severity,
@@ -63,7 +61,7 @@ misconfigurations before deployment.`,
 
 		scnr, err := scanner.NewScanner(config)
 		if err != nil {
-			fmt.Printf("Error initializing scanner: %v\n", err)
+			fmt.Printf("Failed to create scanner: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -73,113 +71,83 @@ misconfigurations before deployment.`,
 			os.Exit(1)
 		}
 
-		// ────────────────────────────────
-		// Simple human-readable output
-		// You can later expand this to JSON / markdown / table
-		// ────────────────────────────────
-		var totalViolations int
-		fmt.Println("\n┌───────────────────────────────┐")
-		fmt.Println("│        Scan Results           │")
-		fmt.Println("└───────────────────────────────┘")
-
-		for _, result := range results {
-			if len(result.Violations) == 0 {
-				continue
-			}
-
-			fmt.Printf("\nFile: %s\n", result.FilePath)
-			for _, v := range result.Violations {
-				// Only show violations >= threshold
-				if severityLevel(v.Severity) < severityLevel(severity) {
-					continue
+		// TODO: better output formatting + exit code based on violations
+		for _, r := range results {
+			if !r.Passed {
+				fmt.Printf("Violations in %s:\n", r.FilePath)
+				for _, v := range r.Violations {
+					fmt.Printf("  - %s: %s\n", v.RuleID, v.Description)
 				}
-
-				totalViolations++
-				fmt.Printf("  [%s] %s\n", strings.ToUpper(v.Severity), v.Description)
-				fmt.Printf("      Rule ID    : %s\n", v.RuleID)
-				fmt.Printf("      Resource   : %s\n", v.Resource)
-				fmt.Printf("      Remediation: %s\n", v.Remediation)
-				if v.LineNumber > 0 {
-					fmt.Printf("      Location   : line %d\n", v.LineNumber)
-				}
-				fmt.Println()
 			}
-		}
-
-		if totalViolations == 0 {
-			fmt.Println("\n✓ No violations found above severity threshold.")
-			fmt.Println("   Your manifests look secure!")
-		} else {
-			fmt.Printf("\nFound %d violation(s) at or above %s severity.\n", totalViolations, strings.ToUpper(severity))
-			fmt.Println("Please review and remediate before deployment.")
-			os.Exit(1) // non-zero exit = useful for CI/CD
 		}
 	},
 }
 
-// Helper to compare severity levels (you can move this elsewhere later)
-func severityLevel(s string) int {
-	switch strings.ToLower(s) {
-	case "critical":
-		return 4
-	case "high":
-		return 3
-	case "medium":
-		return 2
-	case "low":
-		return 1
-	default:
-		return 0
-	}
-}
-
-// monitorCmd handles runtime monitoring
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Start runtime monitoring of Kubernetes cluster",
-	Long: `Monitor live security events from Falco and analyze behavioral patterns 
-using AI-powered anomaly detection.`,
+	Short: "Monitor runtime security events from Falco",
+	Run:   runMonitor,
+}
+
+var monitorStdinCmd = &cobra.Command{
+	Use:   "monitor-stdin",
+	Short: "Monitor Falco events from stdin (kubectl logs pipe)",
+	Long:  `Reads JSON-formatted Falco events from standard input. Useful when piping kubectl logs -f`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cluster, _ := cmd.Flags().GetString("cluster")
-		namespace, _ := cmd.Flags().GetString("namespace")
-		deployment, _ := cmd.Flags().GetString("deployment")
-
-		fmt.Printf("Starting runtime monitoring...\n")
-		fmt.Printf("Cluster: %s\n", cluster)
-		if namespace != "" {
-			fmt.Printf("Namespace: %s\n", namespace)
-		}
-		if deployment != "" {
-			fmt.Printf("Deployment: %s\n", deployment)
-		}
-
-		// TODO: Implement runtime monitoring logic
-		// This will be implemented in internal/runtime/monitor.go
+		viper.Set("monitor.source", "stdin")
+		runMonitor(cmd, args)
 	},
 }
 
-// reportCmd generates forensic reports
-var reportCmd = &cobra.Command{
-	Use:   "report",
-	Short: "Generate forensic investigation reports",
-	Long:  `Generate detailed forensic reports from stored security events and incidents.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		incidentID, _ := cmd.Flags().GetString("incident-id")
-		format, _ := cmd.Flags().GetString("format")
-		from, _ := cmd.Flags().GetString("from")
-		to, _ := cmd.Flags().GetString("to")
+func runMonitor(cmd *cobra.Command, args []string) {
+	namespace, _ := cmd.Flags().GetString("namespace")
+	deployment, _ := cmd.Flags().GetString("deployment")
+	workers, _ := cmd.Flags().GetInt("workers")
+	buffer, _ := cmd.Flags().GetInt("buffer")
+	source, _ := cmd.Flags().GetString("source")
 
-		fmt.Printf("Generating report...\n")
-		if incidentID != "" {
-			fmt.Printf("Incident ID: %s\n", incidentID)
-		} else {
-			fmt.Printf("Time range: %s to %s\n", from, to)
-		}
-		fmt.Printf("Format: %s\n", format)
+	// Allow config file or env to override
+	if source == "" {
+		source = viper.GetString("monitor.source")
+	}
+	if source == "" {
+		source = "socket" // default
+	}
 
-		// TODO: Implement report generation logic
-		// This will be implemented in internal/reporting/generator.go
-	},
+	config := &runtime.MonitorConfig{
+		FalcoSocket: "/run/falco/falco.sock", // only used in socket mode
+		BufferSize:  buffer,
+		Workers:     workers,
+		Namespace:   namespace,
+		Deployment:  deployment,
+		Source:      source,
+	}
+
+	monitor, err := runtime.NewMonitor(config)
+	if err != nil {
+		fmt.Printf("Failed to create monitor: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Starting monitor in %s mode...\n", source)
+
+	// Graceful shutdown
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		fmt.Println("\nReceived shutdown signal...")
+		monitor.Stop()
+		os.Exit(0)
+	}()
+
+	if err := monitor.Start(); err != nil {
+		fmt.Printf("Monitor failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	monitor.Wait()
 }
 
 func init() {
@@ -188,29 +156,37 @@ func init() {
 	// Global flags
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
 
-	// Scan command flags
-	scanCmd.Flags().StringP("path", "p", "./manifests", "Path to manifests directory")
+	// scan command flags
+	scanCmd.Flags().StringP("path", "p", "", "Path to manifests directory")
 	scanCmd.Flags().StringP("format", "f", "json", "Output format (json, yaml, markdown)")
 	scanCmd.Flags().String("rules", "./config/rules", "Path to custom rules directory")
 	scanCmd.Flags().String("severity", "medium", "Minimum severity threshold (low, medium, high, critical)")
 
-	// Monitor command flags
-	monitorCmd.Flags().String("cluster", "minikube", "Kubernetes cluster context")
-	monitorCmd.Flags().StringP("namespace", "n", "", "Namespace to monitor (empty for all)")
-	monitorCmd.Flags().StringP("deployment", "d", "", "Specific deployment to monitor")
-	monitorCmd.Flags().Int("workers", 4, "Number of worker goroutines")
-	monitorCmd.Flags().Int("buffer", 10000, "Event buffer size")
+	// monitor command flags
+	monitorCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
+	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
+	monitorCmd.Flags().Int("workers", 4, "Number of processing workers")
+	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
+	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
 
-	// Report command flags
-	reportCmd.Flags().String("incident-id", "", "Specific incident ID to report on")
-	reportCmd.Flags().StringP("format", "f", "markdown", "Report format (json, markdown, html)")
-	reportCmd.Flags().String("from", "", "Start date (YYYY-MM-DD)")
-	reportCmd.Flags().String("to", "", "End date (YYYY-MM-DD)")
-	reportCmd.Flags().StringP("output", "o", "./reports", "Output directory")
+	// ── Important: duplicate the SAME flags for monitor-stdin ──
+	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
+	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
+	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
+	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
+	// report command (placeholder)
+	reportCmd := &cobra.Command{
+		Use:   "report",
+		Short: "Generate forensic reports (placeholder)",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("Report generation not yet implemented")
+		},
+	}
 
 	// Add subcommands
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(monitorCmd)
+	rootCmd.AddCommand(monitorStdinCmd)
 	rootCmd.AddCommand(reportCmd)
 }
 

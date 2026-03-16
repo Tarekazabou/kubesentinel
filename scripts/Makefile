@@ -27,7 +27,24 @@ deps: ## Install dependencies
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
 	$(PIP) install -r requirements.txt --break-system-packages
+.PHONY: monitor-socket monitor-stdin
 
+monitor-socket: build ## Run monitor using unix socket
+	./bin/kubesentinel monitor --source=socket
+
+monitor-stdin: build ## Run monitor reading from stdin (pipe kubectl logs)
+	@echo "Usage example:"
+	@echo "  kubectl logs -n falco -l app.kubernetes.io/name=falco -f --all-containers | make monitor-stdin"
+	./bin/kubesentinel monitor-stdin
+
+# or if you prefer one binary with flag:
+monitor-dev: build
+	./bin/kubesentinel monitor --source=stdin
+cp-to-vm: build
+	minikube cp ../bin/kubesentinel ~/kubesentinel
+
+test-in-vm: cp-to-vm ## Copy binary and ssh into VM
+	minikube ssh -- "chmod +x ~/kubesentinel && ./kubesentinel monitor --config /path/to/your/config.yaml"
 build: ## Build the Go binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)

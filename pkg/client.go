@@ -26,10 +26,10 @@ type AnomalyRequest struct {
 
 // AnomalyResponse represents a response from the AI service
 type AnomalyResponse struct {
-	IsAnomaly   bool    `json:"is_anomaly"`
-	Score       float64 `json:"score"`
-	Confidence  float64 `json:"confidence"`
-	Reason      string  `json:"reason"`
+	IsAnomaly   bool     `json:"is_anomaly"`
+	Score       float64  `json:"score"`
+	Confidence  float64  `json:"confidence"`
+	Reason      string   `json:"reason"`
 	Suggestions []string `json:"suggestions"`
 }
 
@@ -74,8 +74,8 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", 
-		fmt.Sprintf("%s/predict", c.Endpoint), 
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("%s/predict", c.Endpoint),
 		bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -112,7 +112,7 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 
 // HealthCheck checks if the AI service is healthy
 func (c *Client) HealthCheck(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", 
+	req, err := http.NewRequestWithContext(ctx, "GET",
 		fmt.Sprintf("%s/health", c.Endpoint), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
