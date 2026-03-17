@@ -26,7 +26,7 @@ deps: ## Install dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
-	$(PIP) install -r requirements.txt --break-system-packages
+	$(PIP) install -r ../ai-module/requirements.txt --break-system-packages
 .PHONY: monitor-socket monitor-stdin
 
 monitor-socket: build ## Run monitor using unix socket
@@ -35,7 +35,7 @@ monitor-socket: build ## Run monitor using unix socket
 monitor-stdin: build ## Run monitor reading from stdin (pipe kubectl logs)
 	@echo "Usage example:"
 	@echo "  kubectl logs -n falco -l app.kubernetes.io/name=falco -f --all-containers | make monitor-stdin"
-	./bin/kubesentinel monitor-stdin
+	../bin/kubesentinel monitor-stdin
 
 # or if you prefer one binary with flag:
 monitor-dev: build
@@ -97,7 +97,7 @@ run-monitor: build ## Start runtime monitoring
 
 run-ai: ## Start AI/ML service
 	@echo "Starting AI service..."
-	cd ../cmd && $(PYTHON) server.py
+	cd ../ai-module && $(PYTHON) server.py
 
 run-report: build ## Generate a sample report
 	@echo "Generating report..."
@@ -136,7 +136,7 @@ setup-dev: ## Setup development environment
 integration-test: ## Run integration tests
 	@echo "Running integration tests..."
 	@echo "Starting AI service in background..."
-	@cd ai-module && $(PYTHON) server.py &
+	@cd ../ai-module && $(PYTHON) server.py &
 	@sleep 3
 	@echo "Running integration tests..."
 	$(GO) test -v -tags=integration ./tests/integration/...
