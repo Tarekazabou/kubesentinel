@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -62,9 +63,9 @@ CHECKS PERFORMED:
   - Image security concerns
 
 OUTPUT FORMATS:
-  json:     Machine-readable format for CI/CD integration
-  yaml:     Structured YAML output
-  markdown: Human-readable report format
+  json: Machine-readable format for CI/CD integration
+  html: Interactive HTML report with visualizations
+  text: Human-readable text report format
 
 SEVERITY LEVELS:
   low:      Minor security recommendations
@@ -73,19 +74,37 @@ SEVERITY LEVELS:
   critical: Severe vulnerabilities requiring immediate action`,
 	Example: `  kubesentinel scan
   kubesentinel scan -p ./kubernetes/manifests -f json
-  kubesentinel scan -p ./manifests --rules ./config/custom-rules.yaml --severity high
-  kubesentinel scan -p ./helm/charts -f markdown > security-report.md`,
+  kubesentinel scan -p ./manifests -o security-report.json
+  kubesentinel scan -p ./helm/charts -f html -o ./reports/report.html`,
 	Run: func(cmd *cobra.Command, args []string) {
 		path, _ := cmd.Flags().GetString("path")
 		format, _ := cmd.Flags().GetString("format")
-		rulesPath, _ := cmd.Flags().GetString("rules")
+		output, _ := cmd.Flags().GetString("output")
 
-		fmt.Printf("Scanning manifests at: %s\n", path)
-		fmt.Printf("Output format: %s\n", format)
-		fmt.Printf("Using rules from: %s\n", rulesPath)
+		// Call Python CLI implementation
+		pythonCmd := exec.Command("python", "-m", "cspm.cli",
+			"--manifest", path,
+			"--format", format,
+		)
 
-		// TODO: Implement static scanning logic
-		// This will be implemented in internal/static/scanner.go
+		// Add output flag if specified
+		if output != "" {
+			pythonCmd.Args = append(pythonCmd.Args, "--output", output)
+		}
+
+		// Inherit stdin/stdout/stderr from parent process
+		pythonCmd.Stdin = os.Stdin
+		pythonCmd.Stdout = os.Stdout
+		pythonCmd.Stderr = os.Stderr
+
+		// Execute Python CLI and exit with same code
+		if err := pythonCmd.Run(); err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				os.Exit(exitErr.ExitCode())
+			}
+			fmt.Fprintf(os.Stderr, "Error running scan: %v\n", err)
+			os.Exit(1)
+		}
 	},
 }
 
@@ -203,7 +222,8 @@ func init() {
 
 	// Scan command flags
 	scanCmd.Flags().StringP("path", "p", "./manifests", "Path to manifests directory")
-	scanCmd.Flags().StringP("format", "f", "json", "Output format (json, yaml, markdown)")
+	scanCmd.Flags().StringP("format", "f", "json", "Output format (json, html, text)")
+	scanCmd.Flags().StringP("output", "o", "", "Output file path (default: report.{format})")
 	scanCmd.Flags().String("rules", "./configs/rules", "Path to custom rules directory")
 	scanCmd.Flags().String("severity", "medium", "Minimum severity threshold (low, medium, high, critical)")
 
