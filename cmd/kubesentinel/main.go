@@ -105,8 +105,12 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	workers, _ := cmd.Flags().GetInt("workers")
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
+	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
 
 	// Allow config file or env to override
+	if aiEndpoint == "" {
+		aiEndpoint = viper.GetString("ai.endpoint")
+	}
 	if source == "" {
 		source = viper.GetString("monitor.source")
 	}
@@ -115,12 +119,13 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	}
 
 	config := &runtime.MonitorConfig{
-		FalcoSocket: "/run/falco/falco.sock", // only used in socket mode
+		FalcoSocket: "/run/falco/falco.sock",
 		BufferSize:  buffer,
 		Workers:     workers,
 		Namespace:   namespace,
 		Deployment:  deployment,
 		Source:      source,
+		AIEndpoint:  aiEndpoint, // ← now set here
 	}
 
 	monitor, err := runtime.NewMonitor(config)
@@ -131,7 +136,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 
 	fmt.Printf("Starting monitor in %s mode...\n", source)
 
-	// Graceful shutdown
+	// Graceful shutdown (unchanged)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -168,9 +173,10 @@ func init() {
 	monitorCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
-
+	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
 	// ── Important: duplicate the SAME flags for monitor-stdin ──
 	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
+	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
 	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
 	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")

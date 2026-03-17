@@ -12,6 +12,20 @@ import (
 type RulesEngine struct {
 	Rules []Rule
 }
+type K8sResource struct {
+	APIVersion string                 `yaml:"apiVersion"`
+	Kind       string                 `yaml:"kind"`
+	Metadata   map[string]interface{} `yaml:"metadata"`
+	Spec       map[string]interface{} `yaml:"spec"`
+}
+
+type Violation struct {
+	RuleID      string `json:"rule_id"`
+	Severity    string `json:"severity"`
+	Message     string `json:"message"`
+	Resource    string `json:"resource"`
+	Remediation string `json:"remediation"`
+}
 
 // Rule represents a security rule
 type Rule struct {
@@ -153,7 +167,7 @@ func (re *RulesEngine) evaluateCheck(check Check, resource K8sResource) bool {
 func (re *RulesEngine) getValueAtPath(path string, resource K8sResource) interface{} {
 	// Split path by dots
 	parts := splitPath(path)
-	
+
 	var current interface{} = map[string]interface{}{
 		"apiVersion": resource.APIVersion,
 		"kind":       resource.Kind,
@@ -192,7 +206,7 @@ func splitPath(path string) []string {
 	// Simple path splitter - in production, handle more complex cases
 	parts := []string{}
 	current := ""
-	
+
 	for _, char := range path {
 		if char == '.' {
 			if current != "" {
@@ -203,16 +217,16 @@ func splitPath(path string) []string {
 			current += string(char)
 		}
 	}
-	
+
 	if current != "" {
 		parts = append(parts, current)
 	}
-	
+
 	return parts
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s != substr && 
+	return len(s) >= len(substr) && s != substr &&
 		(len(s) == 0 || len(substr) == 0 || s[0:len(substr)] == substr || contains(s[1:], substr))
 }
 

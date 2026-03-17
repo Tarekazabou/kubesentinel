@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 )
+
+const maxRetries = 3
 
 // Client handles communication with the AI/ML service
 type Client struct {
@@ -45,6 +47,21 @@ type FeatureVector struct {
 	TimeOfDay        int            `json:"time_of_day"`
 	DayOfWeek        int            `json:"day_of_week"`
 	ContainerAge     int            `json:"container_age"`
+}
+
+func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt*200) * time.Millisecond) // simple back-off
+		}
+		resp, err := c.HTTPClient.Do(req)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+	}
+	return nil, fmt.Errorf("AI service failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // NewClient creates a new AI client
@@ -84,7 +101,7 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send request
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.doWithRetry(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -92,12 +109,12 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("AI service returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -118,7 +135,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.doWithRetry(ctx, req)
 	if err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}
@@ -153,14 +170,14 @@ func (c *Client) UpdateBaseline(ctx context.Context, trainingData []FeatureVecto
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send request
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.doWithRetry(ctx, req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("training failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -175,7 +192,7 @@ func (c *Client) GetModelInfo(ctx context.Context) (map[string]interface{}, erro
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := c.HTTPClient.Do(req)
+	resp, err := c.doWithRetry(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -185,7 +202,7 @@ func (c *Client) GetModelInfo(ctx context.Context) (map[string]interface{}, erro
 		return nil, fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

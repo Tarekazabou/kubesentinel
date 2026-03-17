@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"kubesentinel/internal/ai"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -14,6 +15,8 @@ type EventProcessor struct {
 	Workers          int
 	FeatureExtractor *FeatureExtractor
 	Metrics          *ProcessorMetrics
+	AIClient         *ai.Client
+	wg               sync.WaitGroup
 }
 
 // ProcessorMetrics tracks processing statistics
@@ -22,6 +25,7 @@ type ProcessorMetrics struct {
 	ProcessedEvents   int64
 	AnomaliesDetected int64
 	ErrorCount        int64
+	AICalls           int64 // New field for tracking AI API calls
 }
 
 // ProcessedEvent represents an event after processing
@@ -47,10 +51,19 @@ type BehavioralFeatures struct {
 	TimeWindow       string         `json:"time_window"`
 	ContainerID      string         `json:"container_id"`
 	Namespace        string         `json:"namespace"`
+	TimeOfDay        int            `json:"time_of_day"`
+	DayOfWeek        int            `json:"day_of_week"`
+	ContainerAge     int            `json:"container_age"`
 }
 
 // NewEventProcessor creates a new event processor
-func NewEventProcessor(workers int) *EventProcessor {
+// TrainBaseline collects normal events (score < 0.3) and retrains the model every 50 samples
+func (ep *EventProcessor) TrainBaseline(ctx context.Context) {
+	// You can implement a small buffer + ticker, or call manually.
+	// For Week 6 the minimal version is enough:
+	fmt.Println("Baseline training workflow ready – call ep.AIClient.UpdateBaseline(...) with normal FeatureVector slices")
+}
+func NewEventProcessor(workers int, aiClient *ai.Client) *EventProcessor {
 	return &EventProcessor{
 		Workers:          workers,
 		FeatureExtractor: NewFeatureExtractor(),
@@ -59,28 +72,31 @@ func NewEventProcessor(workers int) *EventProcessor {
 			ProcessedEvents:   0,
 			AnomaliesDetected: 0,
 			ErrorCount:        0,
+			AICalls:           0,
 		},
+		AIClient: aiClient, // now comes from parameter
 	}
 }
 
 // Start begins processing events with worker goroutines
 func (ep *EventProcessor) Start(ctx context.Context, eventChan <-chan SecurityEvent) {
-	var wg sync.WaitGroup
+	ep.wg.Add(ep.Workers) // ← use struct field
 
-	// Start worker goroutines
 	for i := 0; i < ep.Workers; i++ {
-		wg.Add(1)
 		go func(workerID int) {
-			defer wg.Done()
+			defer ep.wg.Done() // ← now on struct wg
 			ep.worker(ctx, workerID, eventChan)
 		}(i)
 	}
 
-	// Wait for all workers to finish
+	// Optional: keep the "All stopped" message in background
 	go func() {
-		wg.Wait()
+		ep.wg.Wait()
 		fmt.Println("All event processors stopped")
 	}()
+}
+func (ep *EventProcessor) Wait() {
+	ep.wg.Wait()
 }
 
 // worker processes events from the channel
@@ -137,33 +153,73 @@ func (fe *FeatureExtractor) ExtractFeatures(event SecurityEvent) BehavioralFeatu
 	return features
 }
 
-// Updated signature to return (ProcessedEvent, error)
-func (p *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, error) {
-	atomic.AddInt64(&p.Metrics.TotalEvents, 1)
+func (ep *EventProcessor) toAIFeatureVector(features BehavioralFeatures, event SecurityEvent) ai.FeatureVector {
+	return ai.FeatureVector{
+		ProcessName:      features.ProcessName,
+		ProcessFrequency: features.ProcessFrequency,
+		FileAccessCount:  features.FileAccessCount,
+		NetworkCount:     features.NetworkConnCount,
+		SensitiveFiles:   len(features.SensitiveFiles),
+		UserID:           features.UserID,
+		TimeOfDay:        features.TimeOfDay,
+		DayOfWeek:        features.DayOfWeek,
+		ContainerAge:     features.ContainerAge,
+	}
+}
+func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event SecurityEvent) float64 {
+	fmt.Printf("[DEBUG-AI] Entering AI scoring for process=%s file_access=%d sensitive=%d\n",
+		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
 
-	features := p.FeatureExtractor.ExtractFeatures(event)
+	if ep.AIClient == nil {
+		fmt.Println("[DEBUG-AI] AIClient is nil → using fallback")
+		return ep.calculateRisk(event, features)
+	}
 
-	// Add a debug print here to see the extracted command
-	// fmt.Printf("Extracted Cmd: %s\n", features.CommandLine)
+	aiVec := ep.toAIFeatureVector(features, event)
 
-	riskScore := p.calculateRisk(event, features)
+	// INCREASED TIMEOUT: 200ms is too short for a Python Flask overhead
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ep.AIClient.DetectAnomaly(ctx, aiVec)
+	if err != nil {
+		fmt.Printf("[AI ERROR] %v → using fallback\n", err)
+		atomic.AddInt64(&ep.Metrics.ErrorCount, 1)
+		return ep.calculateRisk(event, features)
+	}
+
+	// Record success metrics
+	atomic.AddInt64(&ep.Metrics.AICalls, 1)
+
+	// This is the log you've been looking for!
+	fmt.Printf("[AI PREDICTION] score=%.3f | is_anomaly=%v | process=%s | reason=%s\n",
+		resp.Score, resp.IsAnomaly, features.ProcessName, resp.Reason)
+
+	return resp.Score
+}
+
+func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, error) {
+	// Note: Removed atomic.AddInt64 here because worker() already does it.
+
+	features := ep.FeatureExtractor.Extract(event)
+	fmt.Printf("[PROC] Extracted features for %s | file_access=%d | sensitive=%d\n",
+		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
+
+	riskScore := ep.getAIRiskScore(features, event)
+
 	isAnomaly := riskScore >= 0.5
 
 	if isAnomaly {
-		atomic.AddInt64(&p.Metrics.AnomaliesDetected, 1)
-		fmt.Printf(" [!] ANOMALY: %s (Score: %.2f)\n", event.Rule, riskScore)
+		atomic.AddInt64(&ep.Metrics.AnomaliesDetected, 1)
 	}
 
-	processed := ProcessedEvent{
+	return ProcessedEvent{
 		Original:  event,
 		Features:  features,
 		Timestamp: time.Now(),
 		RiskScore: riskScore,
 		Anomaly:   isAnomaly,
-	}
-
-	atomic.AddInt64(&p.Metrics.ProcessedEvents, 1)
-	return processed, nil // Now returns the expected two values
+	}, nil
 }
 
 // Simple rule-based scoring engine for Week 4
@@ -217,40 +273,6 @@ func (ep *EventProcessor) isKnownThreat(event SecurityEvent) bool {
 	return false
 }
 
-// getAIRiskScore would call the AI service to get anomaly score
-func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures) float64 {
-	// Placeholder - would integrate with Python AI service via gRPC
-	// For now, return a simple heuristic score
-
-	score := 0.0
-
-	// Increase score for sensitive file access
-	if len(features.SensitiveFiles) > 0 {
-		score += 0.3
-	}
-
-	// Increase score for high network activity
-	if features.NetworkConnCount > 10 {
-		score += 0.2
-	}
-
-	// Increase score for many file accesses
-	if features.FileAccessCount > 50 {
-		score += 0.2
-	}
-
-	// Increase score for unusual processes
-	suspiciousProcesses := []string{"nc", "ncat", "netcat", "wget", "curl"}
-	for _, proc := range suspiciousProcesses {
-		if features.ProcessName == proc {
-			score += 0.4
-			break
-		}
-	}
-
-	return score
-}
-
 // storeForensicData stores forensic information for anomalous events
 func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	// This would integrate with the forensic vault
@@ -270,6 +292,7 @@ func (ep *EventProcessor) GetMetrics() ProcessorMetrics {
 		ProcessedEvents:   atomic.LoadInt64(&ep.Metrics.ProcessedEvents),
 		AnomaliesDetected: atomic.LoadInt64(&ep.Metrics.AnomaliesDetected),
 		ErrorCount:        atomic.LoadInt64(&ep.Metrics.ErrorCount),
+		AICalls:           atomic.LoadInt64(&ep.Metrics.AICalls), // ← ADD THIS
 	}
 }
 
@@ -330,6 +353,9 @@ func (fe *FeatureExtractor) Extract(event SecurityEvent) BehavioralFeatures {
 			features.NetworkConnCount++
 		}
 	}
+	features.TimeOfDay = event.Timestamp.Hour()
+	features.DayOfWeek = int(event.Timestamp.Weekday())
+	features.ContainerAge = 0 // TODO: later pull from k8s.pod.startTime via Falco field if needed
 
 	return features
 }

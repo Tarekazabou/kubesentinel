@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"kubesentinel/internal/ai"
 	"net"
 	"os"
 	"strings"
@@ -33,6 +34,7 @@ type MonitorConfig struct {
 	Namespace   string
 	Deployment  string
 	Source      string // "socket" or "stdin"
+	AIEndpoint  string `json:"ai_endpoint"`
 }
 
 // SecurityEvent represents a security event from Falco
@@ -62,8 +64,12 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 	if config.Source == "" {
 		config.Source = "socket"
 	}
+	if config.AIEndpoint == "" {
+		config.AIEndpoint = "http://localhost:5000"
+	}
+	aiClient := ai.NewClient(config.AIEndpoint, 0.75)
 
-	processor := NewEventProcessor(config.Workers)
+	processor := NewEventProcessor(config.Workers, aiClient)
 
 	return &Monitor{
 		Config:    config,
@@ -73,12 +79,20 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 		cancel:    cancel,
 	}, nil
 }
-
 func (m *Monitor) Start() error {
 	fmt.Println("Starting runtime monitor...")
 
+	// 1. Start the processor workers
+	// We wrap this in the Monitor's WaitGroup so we can wait for them during shutdown
 	m.Processor.Start(m.ctx, m.EventChan)
 
+	if err := m.Processor.AIClient.HealthCheck(m.ctx); err != nil {
+		fmt.Printf("⚠️  AI service not reachable (will fallback to rules): %v\n", err)
+	} else {
+		fmt.Println("✅ AI service healthy – behavioral anomaly detection enabled")
+	}
+
+	// 2. Add to WaitGroup to track the data consumption goroutine
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
@@ -136,40 +150,40 @@ func (m *Monitor) consumeFromSocket() {
 		}
 	}
 }
-
 func (m *Monitor) consumeFromStdin() {
 	fmt.Println("Reading Falco JSON events from stdin... (pipe kubectl logs -f)")
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 || line[0] == '#' || line[0] == '\n' {
+	decoder := json.NewDecoder(os.Stdin)
+
+	for {
+		var event SecurityEvent
+		if err := decoder.Decode(&event); err != nil {
+			if err == io.EOF {
+				break // End of input reached (e.g., cat finished)
+			}
+			fmt.Fprintf(os.Stderr, "JSON decode error (skipped): %v\n", err)
 			continue
 		}
 
-		event, err := m.parseEvent(line)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Parse error: %v  → line: %s\n", err, string(line))
-			continue
-		}
+		procName, _ := event.Fields["proc.name"].(string)
+		fmt.Printf("[EVENT] Received rule=%s proc=%s\n", event.Rule, procName)
 
 		if !m.shouldProcessEvent(event) {
 			continue
 		}
 
-		select {
-		case m.EventChan <- event:
-		default:
-			fmt.Fprintln(os.Stderr, "Event channel full → dropping event")
-		}
+		// Use a simple send instead of select-default to ensure we don't
+		// drop the event in this short test run
+		m.EventChan <- event
 	}
 
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		fmt.Fprintf(os.Stderr, "Stdin read error: %v\n", err)
-	}
+	fmt.Println("stdin closed → draining remaining events...")
+	close(m.EventChan)
+	m.Processor.Wait() // ← now actually waits for workers + AI calls to finish
 
-	fmt.Println("stdin closed → stopping monitor")
-	m.cancel()
+	// Optional extra safety
+	time.Sleep(100 * time.Millisecond) // only for very noisy test runs
+	fmt.Println("Monitor shutdown complete.")
 }
 
 func (m *Monitor) parseEvent(data []byte) (SecurityEvent, error) {

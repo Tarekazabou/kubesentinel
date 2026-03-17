@@ -2,10 +2,13 @@ package runtime
 
 import (
 	"testing"
+
+	"kubesentinel/internal/ai"
 )
 
 func BenchmarkEventPipeline(b *testing.B) {
-	processor := NewEventProcessor(12) // Using your 12 workers
+	aiClient := &ai.Client{}                     // Initialize with appropriate configuration
+	processor := NewEventProcessor(12, aiClient) // Using your 12 workers
 	event := SecurityEvent{
 		Rule:   "Terminal shell in container",
 		Fields: map[string]interface{}{"proc.cmdline": "cat /etc/shadow"},
