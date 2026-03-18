@@ -1,7 +1,34 @@
 {
+<<<<<<< HEAD
     "folders": [
         {
             "path": "../.."
         }
     ]
+=======
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../cmd"
+		},
+		{
+			"path": "../../config"
+		},
+		{
+			"path": "../../deploy"
+		},
+		{
+			"path": "../../docs"
+		},
+		{
+			"path": "../../pkg"
+		},
+		{
+			"path": "../../scripts"
+		}
+	],
+	"settings": {}
+>>>>>>> main
 }

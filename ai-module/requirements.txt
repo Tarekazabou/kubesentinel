@@ -1,4 +1,8 @@
 flask==3.0.0
 scikit-learn==1.3.2
 numpy==1.26.2
+<<<<<<< HEAD:ai-module/requirements.txt
 pytest>=7.0
+=======
+google-genai>=0.3.0
+>>>>>>> main:scripts/requirements.txt
