@@ -101,7 +101,13 @@ var monitorStdinCmd = &cobra.Command{
 
 func runMonitor(cmd *cobra.Command, args []string) {
 	namespace, _ := cmd.Flags().GetString("namespace")
+	podFilter, _ := cmd.Flags().GetString("pod")
+
 	deployment, _ := cmd.Flags().GetString("deployment")
+	if podFilter != "" {
+		// Use Deployment field for pod filtering (your existing logic already does substring match)
+		deployment = podFilter
+	}
 	workers, _ := cmd.Flags().GetInt("workers")
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
@@ -126,6 +132,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		Deployment:  deployment,
 		Source:      source,
 		AIEndpoint:  aiEndpoint, // ← now set here
+		PodName:     podFilter,  // ← NEW
 	}
 
 	monitor, err := runtime.NewMonitor(config)
@@ -168,18 +175,22 @@ func init() {
 	scanCmd.Flags().String("severity", "medium", "Minimum severity threshold (low, medium, high, critical)")
 
 	// monitor command flags
+	// monitor command flags
 	monitorCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
+	monitorCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
+	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
 	monitorCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
 	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	// ── Important: duplicate the SAME flags for monitor-stdin ──
+
+	// monitor-stdin command flags (duplicate for consistency)
 	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
+	monitorStdinCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
+	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
 	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
+	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
 	// report command (placeholder)
 	reportCmd := &cobra.Command{
 		Use:   "report",

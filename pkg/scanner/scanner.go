@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"encoding/json"
 	"kubesentinel/pkg/rules"
 	"kubesentinel/pkg/types"
-	"encoding/json"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Scanner handles static analysis of Kubernetes manifests
@@ -27,10 +28,10 @@ type ScanConfig struct {
 
 // ScanResult represents the result of a manifest scan
 type ScanResult struct {
-	FilePath   string              `json:"file_path"`
-	Violations []types.Violation   `json:"violations"`
-	Metadata   map[string]string   `json:"metadata"`
-	Passed     bool                `json:"passed"`
+	FilePath   string            `json:"file_path"`
+	Violations []types.Violation `json:"violations"`
+	Metadata   map[string]string `json:"metadata"`
+	Passed     bool              `json:"passed"`
 }
 
 // Violation represents a security violation found during scanning
@@ -46,11 +47,12 @@ type K8sResource struct {
 // NewScanner creates a new static scanner instance
 func NewScanner(config *ScanConfig) (*Scanner, error) {
 	engine, err := rules.NewRulesEngine(config.RulesPath)
-    if err != nil {
-        return nil, err
-    }
-    return &Scanner{RulesEngine: engine, Config: config}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &Scanner{RulesEngine: engine, Config: config}, nil
 }
+
 // ScanPath scans all YAML files in the given path
 func (s *Scanner) ScanPath(path string) ([]ScanResult, error) {
 	files, err := s.discoverManifests(path)
@@ -69,12 +71,12 @@ func (s *Scanner) ScanPath(path string) ([]ScanResult, error) {
 		results = append(results, result)
 	}
 	if s.Config.OutputFormat == "json" {
-        jsonData, err := json.MarshalIndent(results, "", "  ")
-        if err != nil {
-            return nil, err
-        }
-        fmt.Println(string(jsonData))
-    }
+		jsonData, err := json.MarshalIndent(results, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(string(jsonData))
+	}
 
 	return results, nil
 }
@@ -191,18 +193,18 @@ func (s *Scanner) scanResource(resource K8sResource) []types.Violation {
 
 	// Apply custom rules from RulesEngine
 	resourceMap := map[string]interface{}{
-    "apiVersion": resource.APIVersion,
-    "kind":       resource.Kind,
-    "metadata":   resource.Metadata,
-    "spec":       resource.Spec,
-    // If your K8sResource has other top-level fields like "status", add them too
-}
+		"apiVersion": resource.APIVersion,
+		"kind":       resource.Kind,
+		"metadata":   resource.Metadata,
+		"spec":       resource.Spec,
+		// If your K8sResource has other top-level fields like "status", add them too
+	}
 
-// Call the rules engine
-    engineViolations := s.RulesEngine.Apply(resourceMap)
+	// Call the rules engine
+	engineViolations := s.RulesEngine.Apply(resourceMap)
 
-// Append them (use a consistent name)
-    violations = append(violations, engineViolations...)
+	// Append them (use a consistent name)
+	violations = append(violations, engineViolations...)
 
 	return violations
 }
@@ -221,7 +223,7 @@ func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violati
 				return &types.Violation{
 					RuleID:      "KS-PRIV-001",
 					Severity:    "critical",
-					Description: fmt.Sprintf("Privileged container found: %s", container["name"]),  // ← changed
+					Description: fmt.Sprintf("Privileged container found: %s", container["name"]), // ← changed
 					Resource:    s.getResourceName(resource),
 					Remediation: "Set securityContext.privileged to false",
 				}
@@ -245,7 +247,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 			return &types.Violation{
 				RuleID:      "SEC-002",
 				Severity:    "high",
-				Description:     "Container missing resource limits",
+				Description: "Container missing resource limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add resources.limits.cpu and resources.limits.memory to container spec",
 			}
@@ -256,7 +258,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 			return &types.Violation{
 				RuleID:      "SEC-002",
 				Severity:    "high",
-				Description:     "Container missing CPU or memory limits",
+				Description: "Container missing CPU or memory limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Define both CPU and memory limits in resources.limits",
 			}
@@ -279,7 +281,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 				return &types.Violation{
 					RuleID:      "SEC-003",
 					Severity:    "medium",
-					Description:     "Container may run as root user",
+					Description: "Container may run as root user",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.runAsNonRoot: true",
 				}
@@ -288,7 +290,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 			return &types.Violation{
 				RuleID:      "SEC-003",
 				Severity:    "medium",
-				Description:     "Missing security context for non-root enforcement",
+				Description: "Missing security context for non-root enforcement",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add securityContext with runAsNonRoot: true",
 			}
@@ -311,7 +313,7 @@ func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
 				return &types.Violation{
 					RuleID:      "SEC-004",
 					Severity:    "medium",
-					Description:     "Container filesystem is not read-only",
+					Description: "Container filesystem is not read-only",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.readOnlyRootFilesystem: true",
 				}
@@ -334,7 +336,7 @@ func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
 			return &types.Violation{
 				RuleID:      "SEC-005",
 				Severity:    "low",
-				Description:     "Container missing security context",
+				Description: "Container missing security context",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add comprehensive securityContext with appropriate settings",
 			}
@@ -348,24 +350,24 @@ func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
 
 func (s *Scanner) parseYAML(content []byte) ([]K8sResource, error) {
 	resources := []K8sResource{}
-	
+
 	// Split multi-document YAML
 	docs := strings.Split(string(content), "---")
-	
+
 	for _, doc := range docs {
 		doc = strings.TrimSpace(doc)
 		if doc == "" {
 			continue
 		}
-		
+
 		var resource K8sResource
 		if err := yaml.Unmarshal([]byte(doc), &resource); err != nil {
 			return nil, err
 		}
-		
+
 		resources = append(resources, resource)
 	}
-	
+
 	return resources, nil
 }
 

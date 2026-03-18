@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suspicious-deploy
+  namespace: kubesentinel-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: suspicious
+  template:
+    metadata:
+      labels:
+        app: suspicious
+    spec:
+      containers:
+      - name: bash
+        image: busybox:latest          # :latest tag
+        command: ["/bin/sh", "-c", "sleep infinity"]
+        securityContext:
+          privileged: false

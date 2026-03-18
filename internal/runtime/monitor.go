@@ -35,6 +35,7 @@ type MonitorConfig struct {
 	Deployment  string
 	Source      string // "socket" or "stdin"
 	AIEndpoint  string `json:"ai_endpoint"`
+	PodName     string `json:"pod_name"` // ← NEW
 }
 
 // SecurityEvent represents a security event from Falco
@@ -156,34 +157,56 @@ func (m *Monitor) consumeFromStdin() {
 	decoder := json.NewDecoder(os.Stdin)
 
 	for {
-		var event SecurityEvent
-		if err := decoder.Decode(&event); err != nil {
+		var rawEvent SecurityEvent
+		if err := decoder.Decode(&rawEvent); err != nil {
 			if err == io.EOF {
-				break // End of input reached (e.g., cat finished)
+				break
 			}
 			fmt.Fprintf(os.Stderr, "JSON decode error (skipped): %v\n", err)
 			continue
 		}
 
-		procName, _ := event.Fields["proc.name"].(string)
-		fmt.Printf("[EVENT] Received rule=%s proc=%s\n", event.Rule, procName)
+		// Parse k8s fields early (critical for filtering)
+		event, _ := m.parseEventForStdin(rawEvent)
 
+		// --- MODIFICATION START ---
+		// 1. Check if the event should be processed BEFORE logging.
+		// This respects your --namespace and --pod flags.
 		if !m.shouldProcessEvent(event) {
 			continue
 		}
 
-		// Use a simple send instead of select-default to ensure we don't
-		// drop the event in this short test run
+		procName, _ := event.Fields["proc.name"].(string)
+
+		// 2. Only log if there is actual content to show (removes the "rule= proc=" lines)
+		if event.Rule != "" && procName != "" {
+			fmt.Printf("[EVENT] Received rule=%s proc=%s ns=%s pod=%s\n",
+				event.Rule, procName, event.Container.Namespace, event.Container.PodName)
+		}
+		// --- MODIFICATION END ---
+
+		// Only relevant events reach the pipeline
 		m.EventChan <- event
 	}
 
 	fmt.Println("stdin closed → draining remaining events...")
 	close(m.EventChan)
-	m.Processor.Wait() // ← now actually waits for workers + AI calls to finish
-
-	// Optional extra safety
-	time.Sleep(100 * time.Millisecond) // only for very noisy test runs
+	m.Processor.Wait()
+	time.Sleep(100 * time.Millisecond)
 	fmt.Println("Monitor shutdown complete.")
+}
+
+// Small helper to ensure parsing for stdin (in case decoder.Decode doesn't populate Container)
+func (m *Monitor) parseEventForStdin(event SecurityEvent) (SecurityEvent, error) {
+	if event.Fields != nil {
+		if ns, ok := event.Fields["k8s.ns.name"].(string); ok {
+			event.Container.Namespace = ns
+		}
+		if pod, ok := event.Fields["k8s.pod.name"].(string); ok {
+			event.Container.PodName = pod
+		}
+	}
+	return event, nil
 }
 
 func (m *Monitor) parseEvent(data []byte) (SecurityEvent, error) {
@@ -206,12 +229,27 @@ func (m *Monitor) parseEvent(data []byte) (SecurityEvent, error) {
 }
 
 func (m *Monitor) shouldProcessEvent(event SecurityEvent) bool {
+	// 1. Hard skip empty rules or internal Falco noise immediately
+	if event.Rule == "" || strings.Contains(event.Rule, "Falco internal") {
+		return false
+	}
+
+	// 2. Namespace must match (if set)
 	if m.Config.Namespace != "" && event.Container.Namespace != m.Config.Namespace {
 		return false
 	}
 
+	// 3. Pod must match (if set)
 	if m.Config.Deployment != "" {
 		if event.Container.PodName == "" || !strings.Contains(event.Container.PodName, m.Config.Deployment) {
+			return false
+		}
+	}
+
+	// 4. Skip empty or system-level processes that generate high volume
+	if proc, ok := event.Fields["proc.name"].(string); ok {
+		// Add "containerd" or "runc" if they are noisy in your environment
+		if proc == "" || proc == "falco" || proc == "kubelet" {
 			return false
 		}
 	}
