@@ -1,0 +1,57 @@
+- id: BUILT-IN-001
+  name: Disallow Privileged Containers
+  description: Running containers in privileged mode grants excessive permissions, increasing attack surface.
+  severity: critical
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].securityContext.privileged
+      operator: equals
+      value: true
+  remediation: Set securityContext.privileged to false. Use specific capabilities instead of full privilege.
+
+- id: BUILT-IN-002
+  name: Require runAsNonRoot
+  description: Containers should not run as root to minimize privilege escalation risks.
+  severity: high
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].securityContext.runAsNonRoot
+      operator: notEquals
+      value: true
+  remediation: Set securityContext.runAsNonRoot to true and specify a non-zero runAsUser.
+
+- id: BUILT-IN-003
+  name: Disallow Latest Image Tag
+  description: Using ':latest' can lead to unexpected image versions and reproducibility issues.
+  severity: medium
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].image
+      operator: contains
+      value: ":latest"
+  remediation: Specify explicit image tags or digests (e.g., nginx:1.25.3 or nginx@sha256:...).
+
+- id: BUILT-IN-004
+  name: Restrict Dangerous Capabilities
+  description: Certain capabilities like SYS_ADMIN or NET_RAW can allow container escapes or network attacks.
+  severity: critical
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].securityContext.capabilities.add
+      operator: contains
+      value: "SYS_ADMIN"  # Check for SYS_ADMIN
+    - path: spec.containers[*].securityContext.capabilities.add
+      operator: contains
+      value: "NET_RAW"    # Check for NET_RAW (add more as needed)
+  remediation: Remove dangerous capabilities from securityContext.capabilities.add. Drop all by default and add only necessary ones.
+
+- id: BUILT-IN-005
+  name: Require Resource Limits
+  description: Missing CPU/memory limits can lead to resource exhaustion and DoS attacks.
+  severity: high
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].resources.limits
+      operator: notExists
+      value: null
+  remediation: "Define resources.limits for CPU and memory in each container (e.g., cpu: 500m, memory: 512Mi)."

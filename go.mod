@@ -1,4 +1,4 @@
-module github.com/yourusername/kubesentinel
+module kubesentinel
 
 go 1.21
 

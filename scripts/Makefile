@@ -2,8 +2,8 @@
 
 # Variables
 BINARY_NAME=kubesentinel
-BUILD_DIR=./bin
-MAIN_PATH=./cmd/kubesentinel
+BUILD_DIR=../bin
+MAIN_PATH=../cmd/kubesentinel
 GO=go
 PYTHON=python3
 PIP=pip3
@@ -12,8 +12,7 @@ PIP=pip3
 VERSION?=0.1.0
 BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GIT_COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.gitCommit=${GIT_COMMIT}"
-
+LDFLAGS=-ldflags "-X main.version=${VERSION} -X main.buildTime=${BUILD_TIME}"
 all: deps build ## Build everything
 
 help: ## Show this help message
@@ -27,12 +26,29 @@ deps: ## Install dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
-	$(PIP) install -r ai-module/requirements.txt --break-system-packages
+	$(PIP) install -r ../ai-module/requirements.txt --break-system-packages
+.PHONY: monitor-socket monitor-stdin
 
+monitor-socket: build ## Run monitor using unix socket
+	./bin/kubesentinel monitor --source=socket
+
+monitor-stdin: build ## Run monitor reading from stdin (pipe kubectl logs)
+	@echo "Usage example:"
+	@echo "  kubectl logs -n falco -l app.kubernetes.io/name=falco -f --all-containers | make monitor-stdin"
+	../bin/kubesentinel monitor-stdin
+
+# or if you prefer one binary with flag:
+monitor-dev: build
+	./bin/kubesentinel monitor --source=stdin
+cp-to-vm: build
+	minikube cp ../bin/kubesentinel ~/kubesentinel
+
+test-in-vm: cp-to-vm ## Copy binary and ssh into VM
+	minikube ssh -- "chmod +x ~/kubesentinel && ./kubesentinel monitor --config /path/to/your/config.yaml"
 build: ## Build the Go binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	$(GO) build -buildvcs=false $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 build-linux: ## Build for Linux
@@ -81,7 +97,7 @@ run-monitor: build ## Start runtime monitoring
 
 run-ai: ## Start AI/ML service
 	@echo "Starting AI service..."
-	cd ai-module && $(PYTHON) server.py
+	cd ../ai-module && $(PYTHON) server.py
 
 run-report: build ## Generate a sample report
 	@echo "Generating report..."
@@ -120,7 +136,7 @@ setup-dev: ## Setup development environment
 integration-test: ## Run integration tests
 	@echo "Running integration tests..."
 	@echo "Starting AI service in background..."
-	@cd ai-module && $(PYTHON) server.py &
+	@cd ../ai-module && $(PYTHON) server.py &
 	@sleep 3
 	@echo "Running integration tests..."
 	$(GO) test -v -tags=integration ./tests/integration/...
