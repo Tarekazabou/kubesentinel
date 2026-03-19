@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KubeSentinel CSPM Report</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 10px;
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2c3e50;
+        }
+        
+        .summary h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat {
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .stat-critical {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+        }
+        
+        .stat-high {
+            background: linear-gradient(135deg, #ffa94d, #ff922b);
+        }
+        
+        .stat-medium {
+            background: linear-gradient(135deg, #ffd93d, #fcb900);
+        }
+        
+        .stat-low {
+            background: linear-gradient(135deg, #6bcf7f, #51cf66);
+        }
+        
+        .stat-total {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        thead {
+            background-color: #2c3e50;
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        td {
+            padding: 12px 15px;
+        }
+        
+        .severity-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .critical {
+            background: #ff6b6b;
+        }
+        
+        .high {
+            background: #ffa94d;
+        }
+        
+        .medium {
+            background: #ffd93d;
+            color: #333;
+        }
+        
+        .low {
+            background: #6bcf7f;
+        }
+        
+        .rule {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #f5f5f5;
+            padding: 3px 6px;
+            border-radius: 3px;
+        }
+        
+        .file {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .message {
+            color: #333;
+        }
+        
+        .remediation {
+            color: #27ae60;
+            font-size: 12px;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .no-findings {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KubeSentinel CSPM Report</h1>
+        <div class="timestamp">Generated: 2026-03-10 21:24:31</div>
+        
+        <div class="summary">
+            <h2>Summary</h2>
+            <div class="stats">
+                <div class="stat stat-total">
+                    <div class="stat-value">4</div>
+                    <div class="stat-label">Total Findings</div>
+                </div>
+                <div class="stat stat-critical">
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">Critical</div>
+                </div>
+                <div class="stat stat-high">
+                    <div class="stat-value">2</div>
+                    <div class="stat-label">High</div>
+                </div>
+                <div class="stat stat-medium">
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">Medium</div>
+                </div>
+                <div class="stat stat-low">
+                    <div class="stat-value">0</div>
+                    <div class="stat-label">Low</div>
+                </div>
+            </div>
+        </div>
+
+        <h2>Findings</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Severity</th>
+                    <th>Rule</th>
+                    <th>File</th>
+                    <th>Message</th>
+                    <th>Remediation</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td><span class="severity-badge critical">CRITICAL</span></td>
+                    <td><span class="rule">privileged_container</span></td>
+                    <td><span class="file">deploy\insecure-pod.yaml</span></td>
+                    <td><span class="message">Container nginx in insecure-pod is running as privileged</span></td>
+                    <td><span class="remediation">Set securityContext.privileged to false</span></td>
+                </tr>
+
+                <tr>
+                    <td><span class="severity-badge high">HIGH</span></td>
+                    <td><span class="rule">missing_resource_limits</span></td>
+                    <td><span class="file">deploy\insecure-pod.yaml</span></td>
+                    <td><span class="message">Container nginx in insecure-pod has no resource limits</span></td>
+                    <td><span class="remediation">Set resources.limits.cpu and resources.limits.memory</span></td>
+                </tr>
+
+                <tr>
+                    <td><span class="severity-badge high">HIGH</span></td>
+                    <td><span class="rule">runs_as_root</span></td>
+                    <td><span class="file">deploy\insecure-pod.yaml</span></td>
+                    <td><span class="message">Container nginx may run as root (runAsUser not set)</span></td>
+                    <td><span class="remediation">Set securityContext.runAsUser to a non-zero value</span></td>
+                </tr>
+
+                <tr>
+                    <td><span class="severity-badge medium">MEDIUM</span></td>
+                    <td><span class="rule">writable_filesystem</span></td>
+                    <td><span class="file">deploy\insecure-pod.yaml</span></td>
+                    <td><span class="message">Container nginx has writable root filesystem</span></td>
+                    <td><span class="remediation">Set securityContext.readOnlyRootFilesystem to true</span></td>
+                </tr>
+
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <p>KubeSentinel CSPM Report | Cloud Security Posture Management</p>
+        </div>
+    </div>
+</body>
+</html>
