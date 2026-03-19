@@ -1,14 +1,20 @@
 package runtime
 
 import (
+	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"kubesentinel/internal/ai"
 )
 
 func TestProcessorConcurrency(t *testing.T) {
-	mockClient := &ai.Client{} // or initialize with appropriate mock/test client
+	mockClient := &ai.Client{
+		Endpoint:   "http://localhost:5000",
+		HTTPClient: &http.Client{Timeout: 5 * time.Second},
+		Threshold:  0.75,
+	}
 	processor := NewEventProcessor(12, mockClient)
 	event := SecurityEvent{
 		Rule:   "Test Rule",
