@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"kubesentinel/internal/runtime"
@@ -19,23 +20,20 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "kubesentinel",
-	Short: "Cloud Security Posture Management Framework",
-	Long: `KubeSentinel is a high-performance security orchestration system that bridges 
-static configuration security and dynamic runtime behavior monitoring for Kubernetes.`,
+	Use:     "kubesentinel",
+	Short:   "Cloud Security Posture Management Framework",
+	Long:    "KubeSentinel bridges static config security and runtime monitoring for Kubernetes.",
 	Version: version,
 }
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Perform static analysis on Kubernetes manifests",
-	Long: `Scan Kubernetes YAML files, Helm charts, and Dockerfiles for security 
-misconfigurations before deployment.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		path, _ := cmd.Flags().GetString("path")
-		format, _ := cmd.Flags().GetString("format")
-		rulesPath, _ := cmd.Flags().GetString("rules")
-		severity, _ := cmd.Flags().GetString("severity")
+		path := viper.GetString("scan.path")
+		format := viper.GetString("scan.format")
+		rulesPath := viper.GetString("scan.rules")
+		severity := viper.GetString("scan.severity")
 
 		if path == "" {
 			fmt.Println("Error: --path is required. Example: --path ./deploy")
@@ -48,10 +46,6 @@ misconfigurations before deployment.`,
 		if severity == "" {
 			severity = "medium"
 		}
-
-		fmt.Printf("Scanning manifests at: %s\n", path)
-		fmt.Printf("Using rules from: %s\n", rulesPath)
-		fmt.Printf("Minimum severity threshold: %s\n", severity)
 
 		config := &scanner.ScanConfig{
 			RulesPath:         rulesPath,
@@ -71,7 +65,6 @@ misconfigurations before deployment.`,
 			os.Exit(1)
 		}
 
-		// TODO: better output formatting + exit code based on violations
 		for _, r := range results {
 			if !r.Passed {
 				fmt.Printf("Violations in %s:\n", r.FilePath)
@@ -91,8 +84,7 @@ var monitorCmd = &cobra.Command{
 
 var monitorStdinCmd = &cobra.Command{
 	Use:   "monitor-stdin",
-	Short: "Monitor Falco events from stdin (kubectl logs pipe)",
-	Long:  `Reads JSON-formatted Falco events from standard input. Useful when piping kubectl logs -f`,
+	Short: "Monitor Falco events from stdin",
 	Run: func(cmd *cobra.Command, args []string) {
 		viper.Set("monitor.source", "stdin")
 		runMonitor(cmd, args)
@@ -100,39 +92,23 @@ var monitorStdinCmd = &cobra.Command{
 }
 
 func runMonitor(cmd *cobra.Command, args []string) {
-	namespace, _ := cmd.Flags().GetString("namespace")
-	podFilter, _ := cmd.Flags().GetString("pod")
+	namespace := viper.GetString("monitor.namespace")
+	podFilter := viper.GetString("monitor.pod")
+	deployment := viper.GetString("monitor.deployment")
 
-	deployment, _ := cmd.Flags().GetString("deployment")
 	if podFilter != "" {
-		// Use Deployment field for pod filtering (your existing logic already does substring match)
 		deployment = podFilter
-	}
-	workers, _ := cmd.Flags().GetInt("workers")
-	buffer, _ := cmd.Flags().GetInt("buffer")
-	source, _ := cmd.Flags().GetString("source")
-	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
-
-	// Allow config file or env to override
-	if aiEndpoint == "" {
-		aiEndpoint = viper.GetString("ai.endpoint")
-	}
-	if source == "" {
-		source = viper.GetString("monitor.source")
-	}
-	if source == "" {
-		source = "socket" // default
 	}
 
 	config := &runtime.MonitorConfig{
 		FalcoSocket: "/run/falco/falco.sock",
-		BufferSize:  buffer,
-		Workers:     workers,
+		BufferSize:  viper.GetInt("monitor.buffer"),
+		Workers:     viper.GetInt("monitor.workers"),
 		Namespace:   namespace,
 		Deployment:  deployment,
-		Source:      source,
-		AIEndpoint:  aiEndpoint, // ← now set here
-		PodName:     podFilter,  // ← NEW
+		Source:      viper.GetString("monitor.source"),
+		AIEndpoint:  viper.GetString("ai.endpoint"),
+		PodName:     podFilter,
 	}
 
 	monitor, err := runtime.NewMonitor(config)
@@ -141,9 +117,8 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Starting monitor in %s mode...\n", source)
+	fmt.Printf("Starting monitor in %s mode...\n", config.Source)
 
-	// Graceful shutdown (unchanged)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -165,46 +140,40 @@ func runMonitor(cmd *cobra.Command, args []string) {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
 
-	// scan command flags
-	scanCmd.Flags().StringP("path", "p", "", "Path to manifests directory")
-	scanCmd.Flags().StringP("format", "f", "json", "Output format (json, yaml, markdown)")
-	scanCmd.Flags().String("rules", "./config/rules", "Path to custom rules directory")
-	scanCmd.Flags().String("severity", "medium", "Minimum severity threshold (low, medium, high, critical)")
+	// Scan flags
+	scanCmd.Flags().StringP("path", "p", "", "Path to manifests")
+	scanCmd.Flags().StringP("format", "f", "json", "Output format")
+	scanCmd.Flags().String("rules", "./config/rules", "Rules directory")
+	scanCmd.Flags().String("severity", "medium", "Severity threshold")
 
-	// monitor command flags
-	// monitor command flags
+	// Monitor flags
 	monitorCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
-	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
-	monitorCmd.Flags().Int("workers", 4, "Number of processing workers")
-	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
-	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
-	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
+	monitorCmd.Flags().StringP("pod", "p", "", "Pod filter")
+	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter")
+	monitorCmd.Flags().Int("workers", 4, "Workers")
+	monitorCmd.Flags().Int("buffer", 10000, "Buffer size")
+	monitorCmd.Flags().String("source", "socket", "Source (socket|stdin)")
+	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI endpoint")
 
-	// monitor-stdin command flags (duplicate for consistency)
-	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorStdinCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
-	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
-	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
-	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
-	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	// report command (placeholder)
-	reportCmd := &cobra.Command{
-		Use:   "report",
-		Short: "Generate forensic reports (placeholder)",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Report generation not yet implemented")
-		},
-	}
+	monitorStdinCmd.Flags().AddFlagSet(monitorCmd.Flags())
 
-	// Add subcommands
+	// Bind flags to viper
+	bindFlags("scan", scanCmd)
+	bindFlags("monitor", monitorCmd)
+	bindFlags("monitor", monitorStdinCmd)
+
 	rootCmd.AddCommand(scanCmd)
 	rootCmd.AddCommand(monitorCmd)
 	rootCmd.AddCommand(monitorStdinCmd)
-	rootCmd.AddCommand(reportCmd)
+}
+
+func bindFlags(prefix string, cmd *cobra.Command) {
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		key := prefix + "." + f.Name
+		viper.BindPFlag(key, f)
+	})
 }
 
 func initConfig() {
