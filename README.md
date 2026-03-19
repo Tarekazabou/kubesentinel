@@ -1,211 +1,155 @@
-<div align="center">
+# KubeSentinel
 
-  <h1>KubeSentinel (:shield:)</h1>
-  
-  <p>
-    A high-performance Cloud Security Posture Management (CSPM) framework that bridges static configuration security and dynamic runtime behavior monitoring for Kubernetes environments.
-  </p>
-  
-<!-- Badges -->
-<p>
-  <a href="">
-    <img src="https://img.shields.io/github/last-commit/yourusername/kubesentinel" alt="last update" />
-  </a>
-  <a href="https://github.com/yourusername/kubesentinel/stargazers">
-    <img src="https://img.shields.io/github/stars/yourusername/kubesentinel" alt="stars" />
-  </a>
-  <a href="https://github.com/yourusername/kubesentinel/issues/">
-    <img src="https://img.shields.io/github/issues/yourusername/kubesentinel" alt="open issues" />
-  </a>
-  <a href="https://github.com/yourusername/kubesentinel/blob/main/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/yourusername/kubesentinel.svg" alt="license" />
-  </a>
-</p>
-   
-<h4>
-    <a href="docs/getting-started.md">Getting Started</a>
-  <span>  </span>
-    <a href="docs/README.md">Documentation</a>
-  <span>  </span>
-    <a href="https://github.com/yourusername/kubesentinel/issues/">Report Bug</a>
-  <span>  </span>
-    <a href="https://github.com/yourusername/kubesentinel/issues/">Request Feature</a>
-  </h4>
-</div>
+Cloud Security Posture Management (CSPM) framework for Kubernetes that combines static manifest analysis, runtime security monitoring, AI-assisted anomaly detection, and forensic reporting.
 
-<br />
+## Table of Contents
 
-<!-- Table of Contents -->
-# :notebook_with_decorative_cover: Table of Contents
+- [About](#about)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Build](#build)
+  - [Run](#run)
+  - [Test](#test)
+- [Usage](#usage)
+- [Documentation](#documentation)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
-- [About the Project](#star2-about-the-project)
-  * [Tech Stack](#space_invader-tech-stack)
-  * [Features](#dart-features)
-  * [Project Structure](#open_file_folder-project-structure)
-- [Getting Started](#toolbox-getting-started)
-  * [Prerequisites](#bangbang-prerequisites)
-  * [Installation](#gear-installation)
-  * [Running Tests](#test_tube-running-tests)
-  * [Run Locally](#running-run-locally)
-- [Usage](#eyes-usage)
-- [Roadmap](#compass-roadmap)
-- [Contributing](#wave-contributing)
-- [License](#warning-license)
-- [Contact](#handshake-contact)
+## About
 
-<!-- About the Project -->
-## :star2: About the Project
+KubeSentinel is designed to improve Kubernetes security across the full lifecycle:
 
-**KubeSentinel** acts as a multi-layered security orchestration system for Kubernetes. 
-It helps safeguard your cloud-native infrastructure by combining static analysis of configuration files (like YAML manifests) with real-time runtime monitoring. 
+- **Shift-left checks** with static policy scanning of manifests
+- **Runtime visibility** through Falco event ingestion and monitoring
+- **Behavior analytics** with a Python ML service
+- **Forensic readiness** via structured evidence retention and reports
 
-With an integrated AI-driven behavioral analyzer, it automatically detects anomalous activities and generates human-readable forensic reports.
+## Features
 
-<!-- TechStack -->
-### :space_invader: Tech Stack
+- **Static Policy Engine**: Detects risky Kubernetes configurations before deployment
+- **Runtime Monitor**: Streams and processes Falco security events
+- **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
+- **Forensic Vault**: Stores and organizes incident evidence
+- **Report Generator**: Produces investigation-friendly outputs
 
-<details>
-  <summary>Application & CLI Engine</summary>
-  <ul>
-    <li><a href="https://go.dev/">Golang (Go 1.21+)</a></li>
-  </ul>
-</details>
+## Tech Stack
 
-<details>
-  <summary>AI & Machine Learning</summary>
-  <ul>
-    <li><a href="https://www.python.org/">Python 3.9+</a></li>
-    <li><a href="https://scikit-learn.org/">Scikit-learn (Isolation Forests)</a></li>
-  </ul>
-</details>
+- **Go 1.21+** for CLI and core services
+- **Python 3.9+** for ML/anomaly detection
+- **Kubernetes** (Minikube/Kind supported)
+- **Falco** for runtime security events
 
-<details>
-<summary>DevOps & Infrastructure</summary>
-  <ul>
-    <li><a href="https://kubernetes.io/">Kubernetes (Minikube / Kind)</a></li>
-    <li><a href="https://falco.org/">Falco (Runtime Monitoring)</a></li>
-    <li><a href="https://www.docker.com/">Docker</a></li>
-  </ul>
-</details>
+## Project Structure
 
-<!-- Features -->
-### :dart: Features
-
-- :mag: **Static Policy Engine** - Pre-deployment manifest scanning to catch misconfigurations.
-- :zap: **Live Stream Monitor** - Runtime event processing integrated with Falco streams.
-- :robot: **AI Behavioral Analyzer** - ML-based anomaly detection out of the box using Isolation Forests.
-- :closed_lock_with_key: **Smart Forensic Vault** - Policy-aware log retention for comprehensive investigations.
-- :page_facing_up: **Automated Investigator** - Human-readable forensic reports available in Markdown and JSON.
-
-<!-- Project Structure -->
-### :open_file_folder: Project Structure
-
-\\\	ext
+```text
 kubesentinel/
- cmd/                           # Application entry points
-    kubesentinel/
-        main.go               # Go CLI application entry point
- ai-module/                     # AI/ML analytics
-    server.py                 # Python server entry point
-    requirements.txt          # Python dependencies
-    models/                   # Serialized ML models
- pkg/                          # Reusable Go packages
- config/                       # Configuration files
- deploy/                       # Kubernetes deployment manifests
- docs/                         # Documentation
- scripts/                      # Build and utility scripts
-    Makefile                 # Build configurations
- go.mod                        # Go module dependencies
- requirements.txt              # Shared Python dependencies
-\\\
+├── cmd/
+│   └── kubesentinel/
+│       └── main.go
+├── internal/
+├── pkg/
+├── ai-module/
+│   ├── server.py
+│   ├── requirements.txt
+│   └── models/
+├── config/
+├── deploy/
+├── docs/
+├── reports/
+├── scripts/
+│   ├── Makefile
+│   ├── install.sh
+│   └── install.ps1
+├── tests/
+├── go.mod
+├── go.sum
+└── requirements.txt
+```
 
-<!-- Getting Started -->
-##  :toolbox: Getting Started
+## Getting Started
 
-<!-- Prerequisites -->
-### :bangbang: Prerequisites
+### Prerequisites
 
-Ensure you have the following installed system-wide:
-- **Go 1.21+**
-- **Docker & Kubernetes** (minikube or kind)
-- **Python 3.9+** alongside pip
+- Go `1.21+`
+- Python `3.9+`
+- Docker
+- Kubernetes (`minikube` or `kind`)
+- Falco (for runtime monitoring scenarios)
 
-<!-- Installation -->
-### :gear: Installation
+### Installation
 
-Clone the repository and install dependencies:
-
-\\\ash
-git clone https://github.com/yourusername/kubesentinel.git
+```bash
+git clone <your-repo-url>
 cd kubesentinel
+```
 
-# Install Go & Python requirements seamlessly using Make
+Install dependencies:
+
+```bash
 make -C scripts deps
-\\\
-   
-<!-- Running Tests -->
-### :test_tube: Running Tests
+```
 
-To run the unit test suites, use the Makefile:
+### Build
 
-\\\ash
-make -C scripts test
-\\\
-
-<!-- Run Locally -->
-### :running: Run Locally
-
-Build the Go binary
-
-\\\ash
+```bash
 make -C scripts build
-\\\
+```
 
-Run static analysis against sample definitions
+### Run
 
-\\\ash
+Static scan example:
+
+```bash
 ./bin/kubesentinel scan --path ./deploy
-\\\
+```
 
-Start the runtime monitor against your cluster
+Runtime monitor example:
 
-\\\ash
+```bash
 ./bin/kubesentinel monitor --cluster minikube
-\\\
+```
 
-<!-- Usage -->
-## :eyes: Usage
+### Test
 
-For detailed setups, runtime commands, and architecture diagrams, check out the documentation folder.
+```bash
+make -C scripts test
+```
 
-- [Getting Started Guide](docs/getting-started.md)
-- [Architecture Deep Dive](docs/architecture.md)
-- [Project References](docs/PROJECT-GUIDE.md)
+## Usage
 
-<!-- Roadmap -->
-## :compass: Roadmap
+Common commands:
 
-* [x] Static Analysis Engine
-* [x] Runtime Monitoring Integration
-* [x] Forensic Log Vault Generation
-* [ ] Advanced Threat Intelligence Feeds
-* [ ] Grafana Dashboard Visualization
+```bash
+./bin/kubesentinel scan --path ./deploy
+./bin/kubesentinel monitor --cluster minikube
+./bin/kubesentinel report --from "2024-01-01" --to "2024-12-31"
+```
 
-See the [Implementation Roadmap](docs/implementation-roadmap.md) for more details.
+## Documentation
 
-<!-- Contributing -->
-## :wave: Contributing
+- [Getting Started](docs/getting-started.md)
+- [Architecture](docs/architecture.md)
+- [Project Guide](docs/PROJECT-GUIDE.md)
+- [Quick Reference](docs/quick-reference.md)
+- [Implementation Roadmap](docs/implementation-roadmap.md)
 
-Contributions are always welcome! First time contributors can check the issues tab to see where to help.
+## Roadmap
 
-<!-- License -->
-## :warning: License
+- [x] Static analysis engine
+- [x] Runtime monitoring pipeline
+- [x] Forensic report generation
+- [ ] Threat-intelligence enrichment
+- [ ] Dashboard and observability enhancements
 
-Distributed under the MIT License. See \LICENSE.txt\ for more information.
+## Contributing
 
-<!-- Contact -->
-## :handshake: Contact
+Contributions are welcome. Open an issue for bugs/feature requests and submit a PR for improvements.
 
-KubeSentinel Team
+## License
 
-Project Link: [https://github.com/yourusername/kubesentinel](https://github.com/yourusername/kubesentinel)
+No license file is currently present in this repository. Add one (for example MIT/Apache-2.0) to define reuse terms.
