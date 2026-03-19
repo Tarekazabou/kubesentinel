@@ -36,14 +36,14 @@ kubesentinel/
 │   ├── server.py            # Flask API with Isolation Forest
 │   └── requirements.txt     # Python dependencies
 │
-├── 📁 configs/               # Configuration
+├── 📁 config/                # Configuration
+│   ├── config.yaml          # Main configuration
 │   └── rules/               # Custom security rules
 │       └── custom-rules.yaml
 │
-├── 📁 examples/              # Test Data
-│   └── k8s-manifests/       # Example Kubernetes manifests
-│       ├── insecure-pod.yaml     # Has vulnerabilities
-│       └── secure-pod.yaml       # Follows best practices
+├── 📁 deploy/                # Test Data & Deployments
+│   ├── insecure-pod.yaml     # Has vulnerabilities
+│   └── secure-pod.yaml       # Follows best practices
 │
 ├── 📁 docs/                  # Documentation
 │   ├── architecture.md      # Deep dive into system design
@@ -80,16 +80,16 @@ make --version
 cd kubesentinel
 
 # 2. Install dependencies
-make deps
+make -C scripts deps
 
 # 3. Build the binary
-make build
+make -C scripts build
 
 # 4. Test static analysis
-./bin/kubesentinel scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./deploy
 
 # Expected output:
-# ✓ Scanning manifests at: ./examples/k8s-manifests
+# ✓ Scanning manifests at: ./deploy
 # ✗ Found violations in insecure-pod.yaml:
 #   - [CRITICAL] Privileged container detected
 #   - [HIGH] Container missing resource limits
@@ -213,7 +213,7 @@ forensics/
 ### Main Config: `config.yaml`
 ```yaml
 static:
-  rules_path: "./configs/rules"
+  rules_path: "./config/rules"
   severity_threshold: "medium"  # low|medium|high|critical
 
 runtime:
@@ -235,7 +235,7 @@ reporting:
   output_path: "./reports"
 ```
 
-### Custom Rules: `configs/rules/custom-rules.yaml`
+### Custom Rules: `config/rules/custom-rules.yaml`
 ```yaml
 - id: CUSTOM-001
   name: Detect SSH Exposure
@@ -298,7 +298,7 @@ git checkout -b feature/my-feature
 vim internal/static/scanner.go
 
 # Test
-make test
+make -C scripts test
 
 # Lint
 make lint
@@ -307,10 +307,10 @@ make lint
 ### 2. Test Locally
 ```bash
 # Build
-make build
+make -C scripts build
 
 # Test static analysis
-./bin/kubesentinel scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./deploy
 
 # Test with custom config
 ./bin/kubesentinel scan --config ./my-config.yaml
@@ -319,10 +319,10 @@ make build
 ### 3. Run Full Suite
 ```bash
 # All tests
-make test
+make -C scripts test
 
 # With coverage
-make test-coverage
+make -C scripts test-coverage
 
 # Benchmarks
 make benchmark
@@ -345,9 +345,9 @@ make benchmark
 5. Test predictions
 
 ### Create Custom Rule
-1. Add YAML to `configs/rules/`
+1. Add YAML to `config/rules/`
 2. Define checks
-3. Test: `kubesentinel scan --rules ./configs/rules/`
+3. Test: `kubesentinel scan --rules ./config/rules/`
 
 ### Debug Issues
 ```bash
@@ -433,7 +433,7 @@ The code is well-structured for contributions:
 - **Add features**: Follow existing patterns
 - **Fix bugs**: Write tests first
 - **Improve docs**: Clear and concise
-- **Share rules**: Add to `configs/rules/`
+- **Share rules**: Add to `config/rules/`
 
 ## 🔐 Security Notes
 

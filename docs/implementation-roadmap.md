@@ -51,7 +51,7 @@ This document provides a structured approach to implementing the KubeSentinel pr
 ### Testing
 ```bash
 # Test with example manifests
-./bin/kubesentinel scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./deploy
 # Should detect violations in insecure-pod.yaml
 ```
 
@@ -307,7 +307,7 @@ ls -lh ./forensics/
 # Feature branch workflow
 git checkout -b feature/static-scanner
 # Make changes
-make test
+make -C scripts test
 make lint
 git commit -m "feat: implement static scanner"
 git push origin feature/static-scanner

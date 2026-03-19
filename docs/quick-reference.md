@@ -22,7 +22,7 @@ kubesentinel/
 ├── ai-module/               # Python AI service
 │   ├── server.py           # Flask API
 │   └── requirements.txt    # Python deps
-├── configs/                 # Configuration
+├── config/                 # Configuration
 │   └── rules/              # Custom rules
 ├── examples/                # Examples
 │   └── k8s-manifests/      # Test manifests
@@ -40,10 +40,10 @@ kubesentinel/
 
 ### Build & Test
 ```bash
-make deps        # Install dependencies
-make build       # Build binary
-make test        # Run tests
-make clean       # Clean artifacts
+make -C scripts deps        # Install dependencies
+make -C scripts build       # Build binary
+make -C scripts test        # Run tests
+make -C scripts clean       # Clean artifacts
 ```
 
 ### Static Analysis
@@ -109,7 +109,7 @@ curl http://localhost:5000/health    # Health check
 ### Static Analysis
 ```yaml
 static:
-  rules_path: "./configs/rules"
+  rules_path: "./config/rules"
   severity_threshold: "medium"
 ```
 
@@ -246,7 +246,7 @@ kubesentinel report --incident-id abc123 --format markdown
 
 ### Input
 - Manifests: User-specified path
-- Rules: `./configs/rules/*.yaml`
+- Rules: `./config/rules/*.yaml`
 - Config: `./config.yaml`
 
 ### Output
@@ -257,7 +257,7 @@ kubesentinel report --incident-id abc123 --format markdown
 ## Development
 
 ### Adding New Rule
-1. Create YAML in `configs/rules/`
+1. Create YAML in `config/rules/`
 2. Define checks
 3. Test with `kubesentinel scan`
 

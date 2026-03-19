@@ -265,7 +265,7 @@ Falco → Unix Socket → Monitor → Event Channel → Workers → Feature Extr
 ## Extensibility Points
 
 ### 1. Custom Rules
-Add YAML files to `configs/rules/`:
+Add YAML files to `config/rules/`:
 ```yaml
 - id: CUSTOM-001
   name: My Custom Rule

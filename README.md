@@ -7,8 +7,12 @@ A high-performance security orchestration system that bridges static configurati
 ```
 kubesentinel/
 ├── cmd/                           # Application entry points
-│   ├── main.go                   # Go CLI application entry point
-│   └── server.py                 # Python server entry point
+│   └── kubesentinel/
+│       └── main.go               # Go CLI application entry point
+├── ai-module/                     # AI/ML analytics
+│   ├── server.py                 # Python server entry point
+│   ├── requirements.txt          # Python dependencies
+│   └── models/                   # Serialized ML models
 ├── pkg/                          # Reusable Go packages
 │   ├── client.go                 # Kubernetes client
 │   ├── scanner.go                # YAML manifest scanner
@@ -31,9 +35,9 @@ kubesentinel/
 │   ├── PROJECT-GUIDE.md         # Project guide
 │   └── quick-reference.md       # Quick reference
 ├── scripts/                      # Build and utility scripts
-│   ├── Makefile                 # Build configurations
-│   └── requirements.txt         # Python dependencies
+│   └── Makefile                 # Build configurations
 ├── go.mod                        # Go module dependencies
+├── requirements.txt              # Shared Python dependencies
 └── .qodo                         # QoDo configuration (if applicable)
 ```
 
@@ -65,7 +69,7 @@ For architecture details, refer to [docs/architecture.md](docs/architecture.md).
 ## 🔧 Building & Running
 
 See [scripts/Makefile](scripts/Makefile) for available build targets.
-Python dependencies are listed in [scripts/requirements.txt](scripts/requirements.txt).
+See [requirements.txt](requirements.txt) and [ai-module/requirements.txt](ai-module/requirements.txt) for Python dependencies.
 
 ## 📚 Documentation
 

@@ -22,13 +22,13 @@ git clone https://github.com/yourusername/kubesentinel.git
 cd kubesentinel
 
 # Set up development environment
-make setup-dev
+make -C scripts setup-dev
 
 # Install dependencies
-make deps
+make -C scripts deps
 
 # Build the binary
-make build
+make -C scripts build
 
 # The binary is now available at ./bin/kubesentinel
 ```
@@ -37,10 +37,10 @@ make build
 
 ```bash
 # Scan example manifests
-./bin/kubesentinel scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./deploy
 
 # Expected output:
-# Scanning manifests at: ./examples/k8s-manifests
+# Scanning manifests at: ./deploy
 # Found violations in example.yaml:
 # - [HIGH] Container missing resource limits
 # - [MEDIUM] Container may run as root user
@@ -113,7 +113,7 @@ Edit `config.yaml` to customize settings:
 
 ```yaml
 static:
-  rules_path: "./configs/rules"
+  rules_path: "./config/rules"
   severity_threshold: "medium"  # low, medium, high, critical
 
 runtime:
@@ -150,8 +150,8 @@ security_scan:
   stage: security
   image: golang:1.21
   before_script:
-    - make deps
-    - make build
+    - make -C scripts deps
+    - make -C scripts build
   script:
     - ./bin/kubesentinel scan --path ./manifests --severity high --format json
   artifacts:
@@ -179,8 +179,8 @@ jobs:
       
       - name: Build KubeSentinel
         run: |
-          make deps
-          make build
+          make -C scripts deps
+          make -C scripts build
       
       - name: Run Security Scan
         run: |
@@ -224,7 +224,7 @@ jobs:
 
 ## Creating Custom Rules
 
-Create a new file in `configs/rules/custom-rules.yaml`:
+Create a new file in `config/rules/custom-rules.yaml`:
 
 ```yaml
 - id: CUSTOM-001
@@ -371,7 +371,7 @@ pip3 list | grep -E "flask|scikit|numpy"
 **Solution:**
 ```bash
 # Check rule files are loaded
-./bin/kubesentinel scan --path ./manifests --rules ./configs/rules
+./bin/kubesentinel scan --path ./manifests --rules ./config/rules
 
 # Verify manifest syntax
 kubectl apply --dry-run=client -f ./manifests/
@@ -419,7 +419,7 @@ Review alerts weekly and adjust:
 ## Next Steps
 
 1. **Read Architecture Documentation**: `docs/architecture.md`
-2. **Explore Example Rules**: `configs/rules/`
+2. **Explore Example Rules**: `config/rules/`
 3. **Customize for Your Environment**: Edit `config.yaml`
 4. **Set Up CI/CD Integration**: Add to your pipeline
 5. **Enable Runtime Monitoring**: Deploy in your cluster

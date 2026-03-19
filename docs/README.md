@@ -60,13 +60,13 @@ git clone https://github.com/yourusername/kubesentinel.git
 cd kubesentinel
 
 # Install dependencies
-make deps
+make -C scripts deps
 
 # Build the binary
-make build
+make -C scripts build
 
 # Run static analysis on manifests
-./bin/kubesentinel scan --path ./examples/k8s-manifests
+./bin/kubesentinel scan --path ./deploy
 
 # Start runtime monitoring
 ./bin/kubesentinel monitor --cluster minikube
@@ -108,12 +108,12 @@ kubesentinel/
 │   ├── server.py
 │   ├── model.py
 │   └── requirements.txt
-├── configs/              # Configuration files
+├── config/               # Configuration files
 │   ├── rules/            # Static analysis rules
-│   └── policies/         # Forensic policies
-├── examples/             # Example manifests and charts
+│   └── config.yaml       # Main configuration file
+├── deploy/               # Deployment manifests (e.g. k8s)
 ├── scripts/              # Build and deployment scripts
-├── Makefile
+│   └── Makefile
 └── README.md
 ```
 
@@ -123,7 +123,7 @@ Create a `config.yaml` file:
 
 ```yaml
 static:
-  rules_path: "./configs/rules"
+  rules_path: "./config/rules"
   severity_threshold: "medium"
   
 runtime:
@@ -218,13 +218,13 @@ Uses behavioral analysis to detect:
 
 ```bash
 # Run all tests
-make test
+make -C scripts test
 
 # Run with coverage
-make test-coverage
+make -C scripts test-coverage
 
 # Run integration tests
-make test-integration
+make -C scripts test-integration
 
 # Benchmark performance
 make benchmark
