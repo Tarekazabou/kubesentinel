@@ -1,6 +1,10 @@
-# KubeSentinel
-
-Cloud Security Posture Management (CSPM) framework for Kubernetes that combines static manifest analysis, runtime security monitoring, AI-assisted anomaly detection, and forensic reporting.
+<div align="center">
+  <img src="assets/kubesentinel_logo.svg" alt="KubeSentinel Logo" width="180" />
+  <h1>KubeSentinel</h1>
+  <p>
+    Cloud Security Posture Management (CSPM) framework for Kubernetes that combines static manifest analysis, runtime security monitoring, AI-assisted anomaly detection, and forensic reporting.
+  </p>
+</div>
 
 ## Table of Contents
 
