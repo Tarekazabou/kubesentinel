@@ -1,1 +1,0 @@
-{"time":"2025-03-17T15:10:00Z","priority":"warning","rule":"Write below etc","output":"File below /etc opened for writing (user=0 container=abc123 process=cat fd=/etc/shadow)","output_fields":{"proc.name":"cat","proc.cmdline":"cat /etc/shadow","fd.name":"/etc/shadow","user.uid":"0","k8s.ns.name":"default","k8s.pod.name":"suspicious-pod-xyz"}}

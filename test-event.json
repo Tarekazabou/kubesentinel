@@ -1,1 +1,0 @@
-{"time":"2026-03-17T14:50:00Z","priority":"warning","rule":"Sensitive file access","output":"cat /etc/shadow","output_fields":{"proc.name":"cat","proc.cmdline":"cat /etc/shadow","fd.name":"/etc/shadow","user.uid":"0","k8s.ns.name":"default","k8s.pod.name":"test-pod"}}
