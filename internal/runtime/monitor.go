@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// Monitor handles runtime security monitoring
+// Monitor handles runtime security monitoring *
 type Monitor struct {
 	Config    *MonitorConfig
 	EventChan chan SecurityEvent
