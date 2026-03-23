@@ -12,6 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from flask import send_from_directory
 import numpy as np
 import pickle
+import pandas as pd
 import json
 import logging
 from datetime import datetime
@@ -35,7 +36,8 @@ class AnomalyDetector:
             'sensitive_files',
             'time_of_day',
             'day_of_week',
-            'container_age'
+            'container_age',
+            'unique_syscalls'
         ]
         self.load_or_create_model()
         
@@ -57,9 +59,18 @@ class AnomalyDetector:
                 max_features=1.0
             )
             # Initialize with dummy data
-            dummy_data = np.random.randn(100, len(self.feature_names))
-            self.scaler.fit(dummy_data)
-            self.model.fit(self.scaler.transform(dummy_data))
+            try:
+                df = pd.read_csv('models/normal_baseline.csv')
+                # Use exactly the 8 features we have
+                X = df[self.feature_names].values
+                self.scaler.fit(X)
+                self.model.fit(self.scaler.transform(X))
+                logger.info(f"Successfully trained on {len(df)} real normal events")
+            except Exception as e:
+                logger.warning(f"Could not load normal_baseline.csv: {e}. Falling back to tiny dummy.")
+                dummy_data = np.random.randn(50, len(self.feature_names))
+                self.scaler.fit(dummy_data)
+                self.model.fit(self.scaler.transform(dummy_data))
             self.save_model()
     
     def save_model(self):
@@ -90,6 +101,7 @@ class AnomalyDetector:
             safe_float('time_of_day', 12),
             safe_float('day_of_week', 0),
             safe_float('container_age', 0),
+            safe_float('unique_syscalls', 0),
         ]
     
         return np.array(features).reshape(1, -1)

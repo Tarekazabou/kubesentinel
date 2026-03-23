@@ -47,6 +47,7 @@ type FeatureVector struct {
 	TimeOfDay        int            `json:"time_of_day"`
 	DayOfWeek        int            `json:"day_of_week"`
 	ContainerAge     int            `json:"container_age"`
+	UniqueSyscalls   int            `json:"unique_syscalls"`
 }
 
 func (c *Client) doWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {

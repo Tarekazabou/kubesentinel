@@ -16,6 +16,8 @@ type EventProcessor struct {
 	FeatureExtractor *FeatureExtractor
 	Metrics          *ProcessorMetrics
 	AIClient         *ai.Client
+	normalBuffer     []ai.FeatureVector // ← ADD THIS
+	bufferMu         sync.Mutex         // ← ADD THIS (protects the slice from concurrent workers)
 	wg               sync.WaitGroup
 }
 
@@ -51,6 +53,7 @@ type BehavioralFeatures struct {
 	TimeWindow       string         `json:"time_window"`
 	ContainerID      string         `json:"container_id"`
 	Namespace        string         `json:"namespace"`
+	PodName          string         `json:"pod_name"`
 	TimeOfDay        int            `json:"time_of_day"`
 	DayOfWeek        int            `json:"day_of_week"`
 	ContainerAge     int            `json:"container_age"`
@@ -58,13 +61,29 @@ type BehavioralFeatures struct {
 
 // NewEventProcessor creates a new event processor
 // TrainBaseline collects normal events (score < 0.3) and retrains the model every 50 samples
+// TrainBaseline collects normal events (score < 0.3) and retrains the model
 func (ep *EventProcessor) TrainBaseline(ctx context.Context) {
-	// You can implement a small buffer + ticker, or call manually.
-	// For Week 6 the minimal version is enough:
-	fmt.Println("Baseline training workflow ready – call ep.AIClient.UpdateBaseline(...) with normal FeatureVector slices")
+	ep.bufferMu.Lock()
+	if len(ep.normalBuffer) < 50 {
+		ep.bufferMu.Unlock()
+		fmt.Printf("[BASELINE] Only %d normal events collected — waiting for more...\n", len(ep.normalBuffer))
+		return
+	}
+
+	toTrain := make([]ai.FeatureVector, len(ep.normalBuffer))
+	copy(toTrain, ep.normalBuffer)
+	ep.normalBuffer = ep.normalBuffer[:0] // clear for next cycle
+	ep.bufferMu.Unlock()
+
+	fmt.Printf("[BASELINE] Training model with %d normal events...\n", len(toTrain))
+	if err := ep.AIClient.UpdateBaseline(ctx, toTrain); err != nil {
+		fmt.Printf("[BASELINE ERROR] %v\n", err)
+	} else {
+		fmt.Println("[BASELINE] ✅ Model successfully retrained!")
+	}
 }
 func NewEventProcessor(workers int, aiClient *ai.Client) *EventProcessor {
-	return &EventProcessor{
+	ep := &EventProcessor{
 		Workers:          workers,
 		FeatureExtractor: NewFeatureExtractor(),
 		Metrics: &ProcessorMetrics{
@@ -74,8 +93,29 @@ func NewEventProcessor(workers int, aiClient *ai.Client) *EventProcessor {
 			ErrorCount:        0,
 			AICalls:           0,
 		},
-		AIClient: aiClient, // now comes from parameter
+		AIClient:     aiClient,
+		normalBuffer: make([]ai.FeatureVector, 0, 200), // pre-allocate
 	}
+
+	// === AUTO TRAINING TICKER (calls your TrainBaseline every 2 minutes) ===
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			ep.TrainBaseline(context.Background())
+		}
+	}()
+
+	// Sliding window (you already had this)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			ep.FeatureExtractor.resetWindow()
+		}
+	}()
+
+	return ep
 }
 
 // Start begins processing events with worker goroutines
@@ -135,19 +175,7 @@ func (fe *FeatureExtractor) ExtractFeatures(event SecurityEvent) BehavioralFeatu
 	}
 	fmt.Printf("Debug: Event Fields: %v\n", event.Fields)
 	if event.Fields != nil {
-		if cmdline, ok := event.Fields["proc.cmdline"].(string); ok {
-			features.CommandLine = cmdline
-		}
-		if pname, ok := event.Fields["proc.pname"].(string); ok {
-			features.ProcessName = pname
-		}
-		if uid, ok := event.Fields["user.uid"].(string); ok {
-			features.UserID = uid
-		}
-		if fdName, ok := event.Fields["fd.name"].(string); ok {
-			features.SensitiveFiles = append(features.SensitiveFiles, fdName)
-		}
-		// Add more field mappings as needed for Week 4 patterns
+
 	}
 
 	return features
@@ -157,6 +185,7 @@ func (ep *EventProcessor) toAIFeatureVector(features BehavioralFeatures, event S
 	return ai.FeatureVector{
 		ProcessName:      features.ProcessName,
 		ProcessFrequency: features.ProcessFrequency,
+		SyscallCounts:    features.SyscallCount,
 		FileAccessCount:  features.FileAccessCount,
 		NetworkCount:     features.NetworkConnCount,
 		SensitiveFiles:   len(features.SensitiveFiles),
@@ -164,6 +193,7 @@ func (ep *EventProcessor) toAIFeatureVector(features BehavioralFeatures, event S
 		TimeOfDay:        features.TimeOfDay,
 		DayOfWeek:        features.DayOfWeek,
 		ContainerAge:     features.ContainerAge,
+		UniqueSyscalls:   len(features.SyscallCount),
 	}
 }
 func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event SecurityEvent) float64 {
@@ -212,7 +242,15 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	if isAnomaly {
 		atomic.AddInt64(&ep.Metrics.AnomaliesDetected, 1)
 	}
-
+	// Collect very safe events for baseline training
+	if riskScore < 0.3 {
+		aiVec := ep.toAIFeatureVector(features, event)
+		ep.bufferMu.Lock()
+		if len(ep.normalBuffer) < 200 {
+			ep.normalBuffer = append(ep.normalBuffer, aiVec)
+		}
+		ep.bufferMu.Unlock()
+	}
 	return ProcessedEvent{
 		Original:  event,
 		Features:  features,
@@ -298,8 +336,9 @@ func (ep *EventProcessor) GetMetrics() ProcessorMetrics {
 
 // FeatureExtractor extracts behavioral features from events
 type FeatureExtractor struct {
-	// State tracking for frequency analysis
 	processFrequency map[string]int
+	fileAccessCount  map[string]int
+	networkConnCount map[string]int
 	mu               sync.RWMutex
 }
 
@@ -307,73 +346,149 @@ type FeatureExtractor struct {
 func NewFeatureExtractor() *FeatureExtractor {
 	return &FeatureExtractor{
 		processFrequency: make(map[string]int),
+		fileAccessCount:  make(map[string]int),
+		networkConnCount: make(map[string]int),
 	}
 }
 
+// resetWindow clears the current window counts (call every 5 minutes)
+func (fe *FeatureExtractor) resetWindow() {
+	fe.mu.Lock()
+	defer fe.mu.Unlock()
+	fe.processFrequency = make(map[string]int)
+	fe.fileAccessCount = make(map[string]int)
+	fe.networkConnCount = make(map[string]int)
+	fmt.Println("[FEATURE] Sliding window reset – new baseline period started")
+}
+
+// Extract extracts behavioral features from a security event
 // Extract extracts behavioral features from a security event
 func (fe *FeatureExtractor) Extract(event SecurityEvent) BehavioralFeatures {
 	features := BehavioralFeatures{
-		SyscallCount:   make(map[string]int),
+		SyscallCount:   make(map[string]int), // ← THIS WAS MISSING → panic
 		SensitiveFiles: []string{},
 		TimeWindow:     getTimeWindow(event.Timestamp),
 		ContainerID:    event.Container.ID,
 		Namespace:      event.Container.Namespace,
+		PodName:        event.Container.PodName,
 	}
 
 	// Extract from output fields
 	if event.Fields != nil {
-		if proc, ok := event.Fields["proc.name"].(string); ok {
+		if proc, ok := event.Fields["proc.name"].(string); ok && proc != "" {
 			features.ProcessName = proc
-			fe.updateProcessFrequency(proc)
-			features.ProcessFrequency = fe.getProcessFrequency(proc)
+			fe.updateProcessFrequency(features.Namespace, event.Container.PodName, proc)
+			features.ProcessFrequency = fe.getProcessFrequency(features.Namespace, event.Container.PodName, proc)
+
+			// File access
+			if fd_name, ok := event.Fields["fd.name"].(string); ok {
+				fe.updateFileAccessCount(features.Namespace, event.Container.PodName, proc)
+				features.FileAccessCount = fe.getFileAccessCount(features.Namespace, event.Container.PodName, proc)
+				if isSensitiveFile(fd_name) {
+					features.SensitiveFiles = append(features.SensitiveFiles, fd_name)
+				}
+			}
+
+			// Network
+			if _, ok := event.Fields["fd.sip"].(string); ok {
+				fe.updateNetworkCount(features.Namespace, event.Container.PodName, proc)
+				features.NetworkConnCount = fe.getNetworkCount(features.Namespace, event.Container.PodName, proc)
+			}
 		}
 
 		if cmdline, ok := event.Fields["proc.cmdline"].(string); ok {
 			features.CommandLine = cmdline
 		}
-
 		if parent, ok := event.Fields["proc.pname"].(string); ok {
 			features.ParentProcess = parent
 		}
-
 		if uid, ok := event.Fields["user.uid"].(string); ok {
 			features.UserID = uid
 		}
 
-		// Check for file operations
-		if fd_name, ok := event.Fields["fd.name"].(string); ok {
-			features.FileAccessCount++
-			if isSensitiveFile(fd_name) {
-				features.SensitiveFiles = append(features.SensitiveFiles, fd_name)
-			}
-		}
-
-		// Check for network operations
-		if _, ok := event.Fields["fd.sip"].(string); ok {
-			features.NetworkConnCount++
+		// === SyscallCount (safe now) ===
+		if syscall, ok := event.Fields["evt.type"].(string); ok && syscall != "" {
+			features.SyscallCount[syscall]++
 		}
 	}
+
 	features.TimeOfDay = event.Timestamp.Hour()
 	features.DayOfWeek = int(event.Timestamp.Weekday())
-	features.ContainerAge = 0 // TODO: later pull from k8s.pod.startTime via Falco field if needed
+
+	// ContainerAge
+	if startStr, ok := event.Fields["k8s.pod.startTime"].(string); ok {
+		if t, err := time.Parse(time.RFC3339, startStr); err == nil {
+			features.ContainerAge = int(time.Since(t).Seconds() / 60)
+		}
+	}
 
 	return features
 }
 
 // Helper methods
 
-func (fe *FeatureExtractor) updateProcessFrequency(proc string) {
+// Helper methods (updated for Issue 4)
+
+func (fe *FeatureExtractor) updateProcessFrequency(namespace, pod, proc string) {
+	if proc == "" {
+		return
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
 	fe.mu.Lock()
 	defer fe.mu.Unlock()
-	fe.processFrequency[proc]++
+	fe.processFrequency[key]++
 }
 
-func (fe *FeatureExtractor) getProcessFrequency(proc string) int {
+func (fe *FeatureExtractor) getProcessFrequency(namespace, pod, proc string) int {
+	if proc == "" {
+		return 0
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
 	fe.mu.RLock()
 	defer fe.mu.RUnlock()
-	return fe.processFrequency[proc]
+	return fe.processFrequency[key]
 }
 
+// Same pattern for the other three counters
+func (fe *FeatureExtractor) updateFileAccessCount(namespace, pod, proc string) {
+	if proc == "" {
+		return
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
+	fe.mu.Lock()
+	defer fe.mu.Unlock()
+	fe.fileAccessCount[key]++
+}
+
+func (fe *FeatureExtractor) getFileAccessCount(namespace, pod, proc string) int {
+	if proc == "" {
+		return 0
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
+	fe.mu.RLock()
+	defer fe.mu.RUnlock()
+	return fe.fileAccessCount[key]
+}
+
+func (fe *FeatureExtractor) updateNetworkCount(namespace, pod, proc string) {
+	if proc == "" {
+		return
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
+	fe.mu.Lock()
+	defer fe.mu.Unlock()
+	fe.networkConnCount[key]++
+}
+
+func (fe *FeatureExtractor) getNetworkCount(namespace, pod, proc string) int {
+	if proc == "" {
+		return 0
+	}
+	key := fmt.Sprintf("%s:%s:%s", namespace, pod, proc)
+	fe.mu.RLock()
+	defer fe.mu.RUnlock()
+	return fe.networkConnCount[key]
+}
 func getTimeWindow(t time.Time) string {
 	// Return hour-based time window for temporal analysis
 	return t.Format("2006-01-02-15")
