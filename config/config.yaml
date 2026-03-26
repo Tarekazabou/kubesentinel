@@ -27,3 +27,9 @@ reporting:
   output_path: "./reports"
   include_statistics: true
   include_timeline: true
+
+gemini:
+  enabled: false
+  api_key: ""
+  model: "gemini-1.5-flash"
+  timeout_seconds: 15

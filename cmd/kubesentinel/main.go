@@ -1,14 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"kubesentinel/internal/forensics"
+	"kubesentinel/internal/llm"
+	"kubesentinel/internal/reporting"
 	"kubesentinel/internal/runtime"
 	"kubesentinel/pkg/scanner"
 )
@@ -170,6 +176,132 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	monitor.Wait()
 }
 
+func runReport(cmd *cobra.Command, args []string) {
+	fromArg, _ := cmd.Flags().GetString("from")
+	toArg, _ := cmd.Flags().GetString("to")
+	incidentID, _ := cmd.Flags().GetString("incident-id")
+	formatArg, _ := cmd.Flags().GetString("format")
+	outputPath, _ := cmd.Flags().GetString("output")
+	noLLM, _ := cmd.Flags().GetBool("no-llm")
+
+	from, err := parseReportTime(fromArg)
+	if err != nil {
+		fmt.Printf("Invalid --from value: %v\n", err)
+		os.Exit(1)
+	}
+	to, err := parseReportTime(toArg)
+	if err != nil {
+		fmt.Printf("Invalid --to value: %v\n", err)
+		os.Exit(1)
+	}
+
+	vaultCfg := &forensics.VaultConfig{
+		StoragePath:   viper.GetString("forensics.storage_path"),
+		RetentionDays: viper.GetInt("forensics.retention_days"),
+		MaxSizeMB:     viper.GetInt("forensics.max_size_mb"),
+		Compression:   viper.GetBool("forensics.compression"),
+	}
+	if vaultCfg.StoragePath == "" {
+		vaultCfg.StoragePath = "./forensics"
+	}
+	if vaultCfg.RetentionDays <= 0 {
+		vaultCfg.RetentionDays = 90
+	}
+	if vaultCfg.MaxSizeMB <= 0 {
+		vaultCfg.MaxSizeMB = 1000
+	}
+
+	vault, err := forensics.NewVault(vaultCfg)
+	if err != nil {
+		fmt.Printf("Failed to initialize vault: %v\n", err)
+		os.Exit(1)
+	}
+
+	formats := parseFormats(formatArg)
+	if len(formats) == 0 {
+		formats = viper.GetStringSlice("reporting.formats")
+	}
+	if len(formats) == 0 {
+		formats = []string{"markdown"}
+	}
+
+	if strings.TrimSpace(outputPath) == "" {
+		outputPath = viper.GetString("reporting.output_path")
+	}
+	if strings.TrimSpace(outputPath) == "" {
+		outputPath = "./reports"
+	}
+
+	generator := reporting.NewGenerator(&reporting.ReportConfig{
+		OutputPath: outputPath,
+		Formats:    formats,
+	})
+
+	var enricher reporting.ReportEnricher
+	geminiEnabled := viper.GetBool("gemini.enabled") && !noLLM
+	if geminiEnabled {
+		geminiClient := llm.NewGeminiClient(llm.GeminiConfig{
+			Enabled:        geminiEnabled,
+			APIKey:         firstNonEmptyString(viper.GetString("gemini.api_key"), os.Getenv("GEMINI_API_KEY")),
+			Model:          viper.GetString("gemini.model"),
+			TimeoutSeconds: viper.GetInt("gemini.timeout_seconds"),
+		})
+		enricher = reporting.NewGeminiEnricher(geminiClient)
+	}
+
+	service := reporting.NewService(vault, generator, enricher)
+	report, err := service.Generate(context.Background(), reporting.ServiceRequest{
+		From:       from,
+		To:         to,
+		IncidentID: incidentID,
+	})
+	if err != nil {
+		fmt.Printf("Report generation failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Report generated successfully (ID: %s) in %s\n", report.ID, outputPath)
+}
+
+func parseReportTime(value string) (time.Time, error) {
+	if strings.TrimSpace(value) == "" {
+		return time.Time{}, nil
+	}
+	layouts := []string{time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("expected RFC3339 or YYYY-MM-DD")
+}
+
+func parseFormats(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.ToLower(strings.TrimSpace(part))
+		if item == "" {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -199,14 +331,18 @@ func init() {
 	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	// report command (placeholder)
+	// report command
 	reportCmd := &cobra.Command{
 		Use:   "report",
-		Short: "Generate forensic reports (placeholder)",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("Report generation not yet implemented")
-		},
+		Short: "Generate forensic investigation reports",
+		Run:   runReport,
 	}
+	reportCmd.Flags().String("from", "", "Start time (RFC3339 or YYYY-MM-DD)")
+	reportCmd.Flags().String("to", "", "End time (RFC3339 or YYYY-MM-DD)")
+	reportCmd.Flags().String("incident-id", "", "Specific incident/record ID")
+	reportCmd.Flags().String("format", "", "Output format(s): markdown,json,html (comma-separated)")
+	reportCmd.Flags().String("output", "", "Output directory for generated reports")
+	reportCmd.Flags().Bool("no-llm", false, "Disable Gemini enrichment even if enabled in config")
 
 	// Add subcommands
 	rootCmd.AddCommand(scanCmd)

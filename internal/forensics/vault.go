@@ -31,26 +31,26 @@ type VaultConfig struct {
 
 // ForensicRecord represents a stored forensic event
 type ForensicRecord struct {
-	ID            string                 `json:"id"`
-	Timestamp     time.Time              `json:"timestamp"`
-	IncidentType  string                 `json:"incident_type"`
-	Severity      string                 `json:"severity"`
-	RiskScore     float64                `json:"risk_score"`
-	Container     ContainerContext       `json:"container"`
-	Events        []SecurityEvent        `json:"events"`
-	SystemCalls   []SystemCall           `json:"system_calls"`
-	NetworkTraces []NetworkTrace         `json:"network_traces"`
-	FileOperations []FileOperation       `json:"file_operations"`
-	Metadata      map[string]interface{} `json:"metadata"`
+	ID             string                 `json:"id"`
+	Timestamp      time.Time              `json:"timestamp"`
+	IncidentType   string                 `json:"incident_type"`
+	Severity       string                 `json:"severity"`
+	RiskScore      float64                `json:"risk_score"`
+	Container      ContainerContext       `json:"container"`
+	Events         []SecurityEvent        `json:"events"`
+	SystemCalls    []SystemCall           `json:"system_calls"`
+	NetworkTraces  []NetworkTrace         `json:"network_traces"`
+	FileOperations []FileOperation        `json:"file_operations"`
+	Metadata       map[string]interface{} `json:"metadata"`
 }
 
 // ContainerContext holds container information
 type ContainerContext struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Image     string `json:"image"`
-	Namespace string `json:"namespace"`
-	PodName   string `json:"pod_name"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Image     string            `json:"image"`
+	Namespace string            `json:"namespace"`
+	PodName   string            `json:"pod_name"`
 	Labels    map[string]string `json:"labels"`
 }
 
@@ -75,14 +75,14 @@ type SystemCall struct {
 
 // NetworkTrace represents network activity
 type NetworkTrace struct {
-	Timestamp   time.Time `json:"timestamp"`
-	Protocol    string    `json:"protocol"`
-	SourceIP    string    `json:"source_ip"`
-	SourcePort  int       `json:"source_port"`
-	DestIP      string    `json:"dest_ip"`
-	DestPort    int       `json:"dest_port"`
-	BytesSent   int64     `json:"bytes_sent"`
-	BytesRecv   int64     `json:"bytes_recv"`
+	Timestamp  time.Time `json:"timestamp"`
+	Protocol   string    `json:"protocol"`
+	SourceIP   string    `json:"source_ip"`
+	SourcePort int       `json:"source_port"`
+	DestIP     string    `json:"dest_ip"`
+	DestPort   int       `json:"dest_port"`
+	BytesSent  int64     `json:"bytes_sent"`
+	BytesRecv  int64     `json:"bytes_recv"`
 }
 
 // FileOperation represents file system activity
@@ -145,9 +145,9 @@ func (v *Vault) StoreRecord(record ForensicRecord) error {
 	if v.Config.Compression {
 		filename += ".gz"
 	}
-	
+
 	path := filepath.Join(v.Config.StoragePath, filename)
-	
+
 	if err := v.writeRecord(path, data); err != nil {
 		return fmt.Errorf("failed to write record: %w", err)
 	}

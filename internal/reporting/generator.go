@@ -1,8 +1,11 @@
 package reporting
 
 import (
+	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -22,15 +25,18 @@ type ReportConfig struct {
 
 // Report represents a forensic investigation report
 type Report struct {
-	ID              string
-	Title           string
-	GeneratedAt     time.Time
-	TimeRange       TimeRange
-	Summary         Summary
-	Incidents       []Incident
-	Timeline        []TimelineEvent
-	Recommendations []Recommendation
-	Statistics      Statistics
+	ID                 string
+	Title              string
+	GeneratedAt        time.Time
+	TimeRange          TimeRange
+	Summary            Summary
+	Incidents          []Incident
+	Timeline           []TimelineEvent
+	Recommendations    []Recommendation
+	Narrative          string
+	LLMFindings        []string
+	LLMRecommendations []Recommendation
+	Statistics         Statistics
 }
 
 // TimeRange represents a time period
@@ -101,6 +107,10 @@ func NewGenerator(config *ReportConfig) *Generator {
 
 // Generate generates reports in all configured formats
 func (g *Generator) Generate(report Report) error {
+	if err := os.MkdirAll(g.Config.OutputPath, 0755); err != nil {
+		return fmt.Errorf("failed to create output path: %w", err)
+	}
+
 	for _, format := range g.Config.Formats {
 		switch format {
 		case "markdown":
@@ -260,23 +270,112 @@ func (g *Generator) generateMarkdown(report Report) error {
 
 // generateJSON generates a JSON report (simplified for brevity)
 func (g *Generator) generateJSON(report Report) error {
-	// Implementation would marshal report to JSON
+	data, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal report JSON: %w", err)
+	}
+
 	filename := fmt.Sprintf("report_%s_%s.json",
 		report.ID,
 		report.GeneratedAt.Format("20060102_150405"))
+	path := filepath.Join(g.Config.OutputPath, filename)
+	if err := ioutil.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write json report: %w", err)
+	}
 
-	fmt.Printf("Generated JSON report: %s\n", filename)
+	fmt.Printf("Generated JSON report: %s\n", path)
 	return nil
 }
 
 // generateHTML generates an HTML report (simplified for brevity)
 func (g *Generator) generateHTML(report Report) error {
-	// Implementation would generate HTML with CSS styling
+	const reportTemplate = `<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>{{.Title}}</title>
+	<style>
+		body { font-family: Arial, sans-serif; margin: 24px; color: #1f2937; }
+		h1, h2, h3 { margin-bottom: 8px; }
+		.muted { color: #6b7280; }
+		.card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+		table { border-collapse: collapse; width: 100%; }
+		th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+		th { background: #f9fafb; }
+	</style>
+</head>
+<body>
+	<h1>{{.Title}}</h1>
+	<p class="muted">Report ID: {{.ID}} | Generated: {{.GeneratedAt.Format "2006-01-02 15:04:05 UTC"}}</p>
+	<p class="muted">Range: {{.TimeRange.From.Format "2006-01-02 15:04:05"}} → {{.TimeRange.To.Format "2006-01-02 15:04:05"}}</p>
+
+	<h2>Summary</h2>
+	<div class="card">
+		<p><strong>Overall Risk:</strong> {{.Summary.OverallRisk}}</p>
+		<p><strong>Total Incidents:</strong> {{.Summary.TotalIncidents}}</p>
+		<p>Critical: {{.Summary.CriticalIncidents}} | High: {{.Summary.HighIncidents}} | Medium: {{.Summary.MediumIncidents}} | Low: {{.Summary.LowIncidents}}</p>
+		<p><strong>Affected Containers:</strong> {{.Summary.AffectedContainers}}</p>
+	</div>
+
+	{{if .Narrative}}<h2>Narrative</h2><div class="card">{{.Narrative}}</div>{{end}}
+
+	<h2>Incidents</h2>
+	{{range .Incidents}}
+		<div class="card">
+			<h3>{{.ID}} - {{.Type}}</h3>
+			<p><strong>Severity:</strong> {{.Severity}} | <strong>Risk:</strong> {{printf "%.2f" .RiskScore}} | <strong>Status:</strong> {{.Status}}</p>
+			<p><strong>Container:</strong> {{.Container}}</p>
+			<p>{{.Description}}</p>
+		</div>
+	{{else}}
+		<p>No incidents found in selected range.</p>
+	{{end}}
+
+	<h2>Timeline</h2>
+	<table>
+		<thead><tr><th>Time</th><th>Severity</th><th>Type</th><th>Description</th><th>Container</th></tr></thead>
+		<tbody>
+			{{range .Timeline}}
+			<tr>
+				<td>{{.Timestamp.Format "2006-01-02 15:04:05"}}</td>
+				<td>{{.Severity}}</td>
+				<td>{{.Type}}</td>
+				<td>{{.Description}}</td>
+				<td>{{.Container}}</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+
+	<h2>Recommendations</h2>
+	<ul>
+		{{range .Recommendations}}<li><strong>{{.Priority}}:</strong> {{.Title}} — {{.Description}}</li>{{end}}
+		{{range .LLMRecommendations}}<li><strong>{{.Priority}} (LLM):</strong> {{.Title}} — {{.Description}}</li>{{end}}
+	</ul>
+</body>
+</html>`
+
+	tmpl, err := template.New("forensic_report").Parse(reportTemplate)
+	if err != nil {
+		return fmt.Errorf("failed to parse html template: %w", err)
+	}
+
 	filename := fmt.Sprintf("report_%s_%s.html",
 		report.ID,
 		report.GeneratedAt.Format("20060102_150405"))
+	path := filepath.Join(g.Config.OutputPath, filename)
 
-	fmt.Printf("Generated HTML report: %s\n", filename)
+	htmlFile, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create html report: %w", err)
+	}
+	defer htmlFile.Close()
+
+	if err := tmpl.Execute(htmlFile, report); err != nil {
+		return fmt.Errorf("failed to render html report: %w", err)
+	}
+
+	fmt.Printf("Generated HTML report: %s\n", path)
 	return nil
 }
 

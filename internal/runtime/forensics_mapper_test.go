@@ -16,7 +16,15 @@ func TestBuildForensicRecord_MapsCoreFields(t *testing.T) {
 		Output:    "An access to /etc/shadow was detected",
 		Source:    "falco",
 		Fields: map[string]interface{}{
-			"proc.name": "cat",
+			"proc.name":    "cat",
+			"proc.pid":     4242,
+			"proc.cmdline": "cat /etc/shadow",
+			"fd.name":      "/etc/shadow",
+			"fd.sip":       "10.1.1.2",
+			"fd.dip":       "10.1.2.3",
+			"fd.sport":     49752,
+			"fd.dport":     443,
+			"evt.type":     "openat",
 		},
 		Container: ContainerInfo{
 			ID:        "container-1",
@@ -63,6 +71,15 @@ func TestBuildForensicRecord_MapsCoreFields(t *testing.T) {
 	}
 	if got := record.Container.Namespace; got != "prod" {
 		t.Fatalf("expected namespace 'prod', got %q", got)
+	}
+	if len(record.SystemCalls) == 0 || record.SystemCalls[0].Name != "openat" {
+		t.Fatalf("expected syscall evidence from evt.type, got %#v", record.SystemCalls)
+	}
+	if len(record.FileOperations) == 0 || record.FileOperations[0].FilePath != "/etc/shadow" {
+		t.Fatalf("expected file operation evidence from fd.name, got %#v", record.FileOperations)
+	}
+	if len(record.NetworkTraces) == 0 || record.NetworkTraces[0].SourceIP != "10.1.1.2" {
+		t.Fatalf("expected network trace evidence from fd.sip/fd.dip, got %#v", record.NetworkTraces)
 	}
 }
 
