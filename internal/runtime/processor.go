@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kubesentinel/internal/ai"
+	"kubesentinel/internal/forensics"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +17,7 @@ type EventProcessor struct {
 	FeatureExtractor *FeatureExtractor
 	Metrics          *ProcessorMetrics
 	AIClient         *ai.Client
+	Vault            *forensics.Vault
 	wg               sync.WaitGroup
 }
 
@@ -63,7 +65,12 @@ func (ep *EventProcessor) TrainBaseline(ctx context.Context) {
 	// For Week 6 the minimal version is enough:
 	fmt.Println("Baseline training workflow ready – call ep.AIClient.UpdateBaseline(...) with normal FeatureVector slices")
 }
-func NewEventProcessor(workers int, aiClient *ai.Client) *EventProcessor {
+func NewEventProcessor(workers int, aiClient *ai.Client, vault ...*forensics.Vault) *EventProcessor {
+	var forensicVault *forensics.Vault
+	if len(vault) > 0 {
+		forensicVault = vault[0]
+	}
+
 	return &EventProcessor{
 		Workers:          workers,
 		FeatureExtractor: NewFeatureExtractor(),
@@ -75,6 +82,7 @@ func NewEventProcessor(workers int, aiClient *ai.Client) *EventProcessor {
 			AICalls:           0,
 		},
 		AIClient: aiClient, // now comes from parameter
+		Vault:    forensicVault,
 	}
 }
 
@@ -208,18 +216,23 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	riskScore := ep.getAIRiskScore(features, event)
 
 	isAnomaly := riskScore >= 0.5
-
-	if isAnomaly {
-		atomic.AddInt64(&ep.Metrics.AnomaliesDetected, 1)
-	}
-
-	return ProcessedEvent{
+	processedEvent := ProcessedEvent{
 		Original:  event,
 		Features:  features,
 		Timestamp: time.Now(),
 		RiskScore: riskScore,
 		Anomaly:   isAnomaly,
-	}, nil
+	}
+
+	if isAnomaly {
+		atomic.AddInt64(&ep.Metrics.AnomaliesDetected, 1)
+		if err := ep.storeForensicData(processedEvent); err != nil {
+			atomic.AddInt64(&ep.Metrics.ErrorCount, 1)
+			fmt.Printf("[FORENSICS ERROR] failed to store anomaly record: %v\n", err)
+		}
+	}
+
+	return processedEvent, nil
 }
 
 // Simple rule-based scoring engine for Week 4
@@ -275,14 +288,16 @@ func (ep *EventProcessor) isKnownThreat(event SecurityEvent) bool {
 
 // storeForensicData stores forensic information for anomalous events
 func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
-	// This would integrate with the forensic vault
-	// For now, just log
-	fmt.Printf("ANOMALY DETECTED: Risk=%.2f, Rule=%s, Container=%s\n",
-		event.RiskScore,
-		event.Original.Rule,
-		event.Original.Container.Name)
+	if ep.Vault == nil {
+		fmt.Printf("ANOMALY DETECTED (vault not configured): Risk=%.2f, Rule=%s, Container=%s\n",
+			event.RiskScore,
+			event.Original.Rule,
+			event.Original.Container.Name)
+		return nil
+	}
 
-	return nil
+	record := buildForensicRecord(event.Original, event.Features, event.RiskScore, event.Timestamp)
+	return ep.Vault.StoreRecord(record)
 }
 
 // GetMetrics returns current processor metrics

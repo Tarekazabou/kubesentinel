@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"kubesentinel/internal/ai"
+	"kubesentinel/internal/forensics"
 	"net"
 	"os"
 	"strings"
@@ -28,14 +29,18 @@ type Monitor struct {
 
 // MonitorConfig holds monitoring configuration
 type MonitorConfig struct {
-	FalcoSocket string
-	BufferSize  int
-	Workers     int
-	Namespace   string
-	Deployment  string
-	Source      string // "socket" or "stdin"
-	AIEndpoint  string `json:"ai_endpoint"`
-	PodName     string `json:"pod_name"` // ← NEW
+	FalcoSocket        string
+	BufferSize         int
+	Workers            int
+	Namespace          string
+	Deployment         string
+	Source             string // "socket" or "stdin"
+	AIEndpoint         string `json:"ai_endpoint"`
+	PodName            string `json:"pod_name"` // ← NEW
+	VaultStoragePath   string `json:"vault_storage_path"`
+	VaultRetentionDays int    `json:"vault_retention_days"`
+	VaultMaxSizeMB     int    `json:"vault_max_size_mb"`
+	VaultCompression   bool   `json:"vault_compression"`
 }
 
 // SecurityEvent represents a security event from Falco
@@ -68,9 +73,27 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 	if config.AIEndpoint == "" {
 		config.AIEndpoint = "http://localhost:5000"
 	}
+	if config.VaultStoragePath == "" {
+		config.VaultStoragePath = "./forensics"
+	}
+	if config.VaultRetentionDays <= 0 {
+		config.VaultRetentionDays = 90
+	}
+	if config.VaultMaxSizeMB <= 0 {
+		config.VaultMaxSizeMB = 1000
+	}
 	aiClient := ai.NewClient(config.AIEndpoint, 0.75)
+	vault, err := forensics.NewVault(&forensics.VaultConfig{
+		StoragePath:   config.VaultStoragePath,
+		RetentionDays: config.VaultRetentionDays,
+		MaxSizeMB:     config.VaultMaxSizeMB,
+		Compression:   config.VaultCompression,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize forensic vault: %w", err)
+	}
 
-	processor := NewEventProcessor(config.Workers, aiClient)
+	processor := NewEventProcessor(config.Workers, aiClient, vault)
 
 	return &Monitor{
 		Config:    config,

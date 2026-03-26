@@ -112,6 +112,10 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
 	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
+	vaultStoragePath := viper.GetString("forensics.storage_path")
+	vaultRetentionDays := viper.GetInt("forensics.retention_days")
+	vaultMaxSizeMB := viper.GetInt("forensics.max_size_mb")
+	vaultCompression := viper.GetBool("forensics.compression")
 
 	// Allow config file or env to override
 	if aiEndpoint == "" {
@@ -125,14 +129,18 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	}
 
 	config := &runtime.MonitorConfig{
-		FalcoSocket: "/run/falco/falco.sock",
-		BufferSize:  buffer,
-		Workers:     workers,
-		Namespace:   namespace,
-		Deployment:  deployment,
-		Source:      source,
-		AIEndpoint:  aiEndpoint, // ← now set here
-		PodName:     podFilter,  // ← NEW
+		FalcoSocket:        "/run/falco/falco.sock",
+		BufferSize:         buffer,
+		Workers:            workers,
+		Namespace:          namespace,
+		Deployment:         deployment,
+		Source:             source,
+		AIEndpoint:         aiEndpoint,
+		PodName:            podFilter,
+		VaultStoragePath:   vaultStoragePath,
+		VaultRetentionDays: vaultRetentionDays,
+		VaultMaxSizeMB:     vaultMaxSizeMB,
+		VaultCompression:   vaultCompression,
 	}
 
 	monitor, err := runtime.NewMonitor(config)

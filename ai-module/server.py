@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class AnomalyDetector:
     """Anomaly detection using Isolation Forest"""
+    MODEL_VERSION = 2
     
     def __init__(self, model_path='models/baseline.pkl'):
         self.model_path = model_path
@@ -47,20 +48,66 @@ class AnomalyDetector:
                 saved_data = pickle.load(f)
                 self.model = saved_data['model']
                 self.scaler = saved_data['scaler']
+
+                metadata = saved_data.get('metadata', {})
+                model_version = metadata.get('model_version', 1)
+                if model_version < self.MODEL_VERSION and self._model_is_degenerate():
+                    logger.warning(
+                        "Loaded legacy baseline model appears degenerate; rebuilding baseline model"
+                    )
+                    self._initialize_model()
+                    self.save_model()
         else:
             logger.info("Creating new Isolation Forest model")
-            self.model = IsolationForest(
-                contamination=0.1,
-                random_state=42,
-                n_estimators=100,
-                max_samples='auto',
-                max_features=1.0
-            )
-            # Initialize with dummy data
-            dummy_data = np.random.randn(100, len(self.feature_names))
-            self.scaler.fit(dummy_data)
-            self.model.fit(self.scaler.transform(dummy_data))
+            self._initialize_model()
             self.save_model()
+
+    def _initialize_model(self):
+        """Initialize model with realistic baseline behavior."""
+        self.model = IsolationForest(
+            contamination=0.05,
+            random_state=42,
+            n_estimators=100,
+            max_samples='auto',
+            max_features=1.0
+        )
+
+        baseline_data = self._create_bootstrap_data(500)
+        self.scaler.fit(baseline_data)
+        self.model.fit(self.scaler.transform(baseline_data))
+
+    def _create_bootstrap_data(self, size):
+        """Create synthetic but realistic baseline data for cold-start training."""
+        process_frequency = np.random.poisson(lam=8, size=size)
+        file_access_count = np.clip(np.random.normal(loc=35, scale=15, size=size), 0, None)
+        network_count = np.random.poisson(lam=6, size=size)
+        sensitive_files = np.random.binomial(n=2, p=0.05, size=size)
+        time_of_day = np.random.randint(0, 24, size=size)
+        day_of_week = np.random.randint(0, 7, size=size)
+        container_age = np.clip(np.random.exponential(scale=48, size=size), 0, 720)
+
+        return np.column_stack([
+            process_frequency,
+            file_access_count,
+            network_count,
+            sensitive_files,
+            time_of_day,
+            day_of_week,
+            container_age,
+        ])
+
+    def _model_is_degenerate(self):
+        """Detect cold-start models that classify almost everything as anomalous."""
+        if self.model is None:
+            return True
+
+        baseline_probe = self._create_bootstrap_data(200)
+        baseline_probe_scaled = self.scaler.transform(baseline_probe)
+        predictions = self.model.predict(baseline_probe_scaled)
+        anomaly_ratio = float(np.mean(predictions == -1))
+
+        logger.info(f"Model baseline anomaly ratio check: {anomaly_ratio:.3f}")
+        return anomaly_ratio > 0.70
     
     def save_model(self):
         """Save model to disk"""
@@ -68,7 +115,11 @@ class AnomalyDetector:
         with open(self.model_path, 'wb') as f:
             pickle.dump({
                 'model': self.model,
-                'scaler': self.scaler
+                'scaler': self.scaler,
+                'metadata': {
+                    'model_version': self.MODEL_VERSION,
+                    'updated_at': datetime.now().isoformat()
+                }
             }, f)
         logger.info(f"Model saved to {self.model_path}")
     
