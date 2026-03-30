@@ -2,11 +2,16 @@
 
 # Variables
 BINARY_NAME=kubesentinel
-BUILD_DIR=../bin
-MAIN_PATH=../cmd/kubesentinel
+THIS_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
+SCRIPT_DIR := $(patsubst %/,%,$(dir $(THIS_MAKEFILE)))
+ROOT_DIR := $(abspath $(SCRIPT_DIR)/..)
+
+BUILD_DIR=$(ROOT_DIR)/bin
+MAIN_PATH=$(ROOT_DIR)/cmd/kubesentinel
+AI_DIR=$(ROOT_DIR)/ai-module
 GO=go
-PYTHON=python3
-PIP=pip3
+PYTHON?=python
+PIP?=$(PYTHON) -m pip
 
 # Build information
 VERSION?=0.1.0
@@ -26,22 +31,22 @@ deps: ## Install dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
-	$(PIP) install -r ../ai-module/requirements.txt --break-system-packages
+	$(PIP) install -r $(AI_DIR)/requirements.txt
 .PHONY: monitor-socket monitor-stdin
 
 monitor-socket: build ## Run monitor using unix socket
-	./bin/kubesentinel monitor --source=socket
+	$(BUILD_DIR)/$(BINARY_NAME) monitor --source=socket
 
 monitor-stdin: build ## Run monitor reading from stdin (pipe kubectl logs)
 	@echo "Usage example:"
 	@echo "  kubectl logs -n falco -l app.kubernetes.io/name=falco -f --all-containers | make monitor-stdin"
-	../bin/kubesentinel monitor-stdin
+	$(BUILD_DIR)/$(BINARY_NAME) monitor-stdin
 
 # or if you prefer one binary with flag:
 monitor-dev: build
-	./bin/kubesentinel monitor --source=stdin
+	$(BUILD_DIR)/$(BINARY_NAME) monitor --source=stdin
 cp-to-vm: build
-	minikube cp ../bin/kubesentinel ~/kubesentinel
+	minikube cp $(BUILD_DIR)/$(BINARY_NAME) ~/kubesentinel
 
 test-in-vm: cp-to-vm ## Copy binary and ssh into VM
 	minikube ssh -- "chmod +x ~/kubesentinel && ./kubesentinel monitor --config /path/to/your/config.yaml"
@@ -85,7 +90,7 @@ lint: ## Run linters
 	@echo "Running golangci-lint..."
 	golangci-lint run ./... || echo "Install golangci-lint: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
 	@echo "Running Python linters..."
-	cd ai-module && $(PYTHON) -m flake8 . || echo "Install flake8: pip install flake8"
+	cd $(AI_DIR) && $(PYTHON) -m flake8 . || echo "Install flake8: pip install flake8"
 
 run-static: build ## Run static analysis on example manifests
 	@echo "Running static analysis..."
@@ -97,7 +102,7 @@ run-monitor: build ## Start runtime monitoring
 
 run-ai: ## Start AI/ML service
 	@echo "Starting AI service..."
-	cd ../ai-module && $(PYTHON) server.py
+	cd $(AI_DIR) && $(PYTHON) server.py
 
 run-report: build ## Generate a sample report
 	@echo "Generating report..."
@@ -136,7 +141,7 @@ setup-dev: ## Setup development environment
 integration-test: ## Run integration tests
 	@echo "Running integration tests..."
 	@echo "Starting AI service in background..."
-	@cd ../ai-module && $(PYTHON) server.py &
+	@cd $(AI_DIR) && $(PYTHON) server.py &
 	@sleep 3
 	@echo "Running integration tests..."
 	$(GO) test -v -tags=integration ./tests/integration/...
