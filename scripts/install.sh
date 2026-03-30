@@ -13,8 +13,8 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 echo -e "${CYAN}=================================="
-echo "KubeSentinel Installation Script"
-echo "==================================${NC}"
+echo -e "KubeSentinel Installation Script"
+echo -e "==================================${NC}"
 echo ""
 
 # Detect OS
@@ -67,7 +67,7 @@ trap "rm -rf $BUILD_DIR" EXIT
 echo -e "${YELLOW}Building KubeSentinel...${NC}"
 cd "$PROJECT_ROOT"
 
-if go build -o "$BUILD_DIR/$BINARY_NAME" -ldflags "-s -w" ./cmd/main.go; then
+if go build -o "$BUILD_DIR/$BINARY_NAME" -ldflags "-s -w" ./cmd/kubesentinel; then
     echo -e "${GREEN}✓ Build successful${NC}"
 else
     echo -e "${RED}✗ Build failed${NC}"
@@ -112,8 +112,8 @@ fi
 
 echo ""
 echo -e "${CYAN}Installation Summary:${NC}"
-echo -e "${RED}Installation Path:${NC} $INSTALL_DIR"
-echo -e "${RED}Binary:${NC} $BINARY_PATH"
+echo -e "${GREEN}Installation Path:${NC} $INSTALL_DIR"
+echo -e "${GREEN}Binary:${NC} $BINARY_PATH"
 echo ""
 echo -e "${YELLOW}You can now use 'kubesentinel' from anywhere in your terminal.${NC}"
 echo -e "${YELLOW}Run: kubesentinel --help${NC}"

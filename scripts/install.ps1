@@ -11,12 +11,12 @@ Write-Host ""
 
 $gocheck = go version 2>$null
 if (-not $gocheck) {
-    Write-Host "X Error: Go is not installed or not in PATH" -ForegroundColor Red
+    Write-Host "✗ Error: Go is not installed or not in PATH" -ForegroundColor Red
     Write-Host "Please install Go from https://golang.org/dl/" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "X Found: $gocheck" -ForegroundColor Green
+Write-Host "✓ Found: $gocheck" -ForegroundColor Green
 
 $installDir = "$env:USERPROFILE\AppData\Local\Programs\kubesentinel"
 $binPath = "$installDir\bin"
@@ -32,26 +32,26 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent $scriptDir
 
 if (-not (Test-Path "$projectRoot\go.mod")) {
-    Write-Host "X Error: go.mod not found. Run this script from the project root." -ForegroundColor Red
+    Write-Host "✗ Error: go.mod not found. Run this script from the project root." -ForegroundColor Red
     exit 1
 }
 
 Write-Host "Building KubeSentinel..." -ForegroundColor Yellow
 try {
     Push-Location $projectRoot
-    go build -o $binaryPath -ldflags "-s -w" .\cmd\main.go
+    go build -o $binaryPath -ldflags "-s -w" .\cmd\kubesentinel
     Pop-Location
-    Write-Host "X Build successful" -ForegroundColor Green
+    Write-Host "✓ Build successful" -ForegroundColor Green
 } catch {
-    Write-Host "X Build failed: $_" -ForegroundColor Red
+    Write-Host "✗ Build failed: $_" -ForegroundColor Red
     exit 1
 }
 
 Write-Host "Verifying installation..." -ForegroundColor Yellow
 if (Test-Path $binaryPath) {
-    Write-Host "X Binary created: $binaryPath" -ForegroundColor Green
+    Write-Host "✓ Binary created: $binaryPath" -ForegroundColor Green
 } else {
-    Write-Host "X Binary not found after build" -ForegroundColor Red
+    Write-Host "✗ Binary not found after build" -ForegroundColor Red
     exit 1
 }
 
@@ -62,17 +62,17 @@ if ($currentPath -notlike "*$binPath*") {
     Write-Host "Adding to user PATH..." -ForegroundColor Yellow
     $newPath = "$binPath;$currentPath"
     [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-    Write-Host "X PATH updated for future sessions" -ForegroundColor Green
+    Write-Host "✓ PATH updated for future sessions" -ForegroundColor Green
 } else {
-    Write-Host "X Already in PATH" -ForegroundColor Green
+    Write-Host "✓ Already in PATH" -ForegroundColor Green
 }
 
 Write-Host "Testing installation..." -ForegroundColor Yellow
 $testCmd = & $binaryPath --help 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "X KubeSentinel is ready to use!" -ForegroundColor Green
+    Write-Host "✓ KubeSentinel is ready to use!" -ForegroundColor Green
 } else {
-    Write-Host "X Installation complete." -ForegroundColor Green
+    Write-Host "✓ Installation complete." -ForegroundColor Green
 }
 
 Write-Host ""

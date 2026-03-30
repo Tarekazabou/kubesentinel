@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KubeSentinel – Kubernetes CSPM</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ─── NAV ─────────────────────────────────────────────────────────────── -->
+<header class="nav">
+  <div class="nav-inner container">
+    <a href="#" class="nav-brand">
+      <svg class="nav-logo" viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">
+        <defs><clipPath id="sc"><path d="M255 60L425 60L435 210L340 325L245 210Z"/></clipPath></defs>
+        <path d="M255 60L425 60L435 210L340 325L245 210Z" fill="#042c53" stroke="#378add" stroke-width="2"/>
+        <path d="M255 60L425 60L427 88L253 88Z" fill="#0c447c"/>
+        <g clip-path="url(#sc)"><circle cx="340" cy="190" r="80" fill="none" stroke="#85b7eb" stroke-dasharray="4 6" opacity=".22"/><circle cx="340" cy="190" r="104" fill="none" stroke="#85b7eb" stroke-dasharray="4 6" opacity=".13"/></g>
+        <circle cx="340" cy="190" r="58" fill="none" stroke="#378add" stroke-width="1.5"/>
+        <line x1="340" y1="177" x2="340" y2="132" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="352" y1="183" x2="390" y2="161" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="352" y1="197" x2="390" y2="219" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="340" y1="203" x2="340" y2="248" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="328" y1="197" x2="290" y2="219" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="328" y1="183" x2="290" y2="161" stroke="#85b7eb" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="340" cy="190" r="14" fill="#378add"/>
+        <circle cx="340" cy="185" r="5" fill="#042c53"/>
+        <path d="M337.5 189L342.5 189L342 199L338 199Z" fill="#042c53"/>
+      </svg>
+      <span class="nav-title">KubeSentinel</span>
+    </a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#demo">Demo</a>
+      <a href="#commands">Commands</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Tarekazabou/kubesentinel" target="_blank" class="btn btn-outline btn-sm">GitHub</a>
+    </nav>
+    <button class="nav-toggle" aria-label="Toggle menu" onclick="toggleNav()">☰</button>
+  </div>
+</header>
+
+<!-- ─── HERO ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-text">
+      <span class="badge">v0.1.0 · Open Source</span>
+      <h1>Kubernetes Security,<br><span class="accent">End-to-End.</span></h1>
+      <p class="hero-sub">KubeSentinel is a Cloud Security Posture Management (CSPM) framework that combines static manifest analysis, runtime monitoring, AI-assisted anomaly detection, and forensic reporting—all in one binary.</p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">Get Started</a>
+        <a href="#demo" class="btn btn-ghost">See it in action →</a>
+      </div>
+    </div>
+    <div class="hero-terminal" aria-label="Terminal preview">
+      <div class="term-bar">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        <span class="term-title">kubesentinel</span>
+      </div>
+      <pre class="term-body" id="hero-term"></pre>
+    </div>
+  </div>
+  <div class="hero-stats container">
+    <div class="stat"><span class="stat-val">6</span><span class="stat-lbl">Built-in Features</span></div>
+    <div class="stat"><span class="stat-val">50+</span><span class="stat-lbl">Security Rules</span></div>
+    <div class="stat"><span class="stat-val">3</span><span class="stat-lbl">Report Formats</span></div>
+    <div class="stat"><span class="stat-val">0</span><span class="stat-lbl">External Deps to Run</span></div>
+  </div>
+</section>
+
+<!-- ─── FEATURES ─────────────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="container">
+    <h2 class="section-title">Everything you need to secure Kubernetes</h2>
+    <p class="section-sub">Six integrated modules that cover the full security lifecycle—from pre-deployment checks to post-incident forensics.</p>
+    <div class="features-grid">
+
+      <div class="feature-card" data-feature="scan" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Static Policy Engine</h3>
+        <p>Scans Kubernetes YAML, Helm charts, and Dockerfiles for misconfigurations before they reach your cluster. Catches privilege escalation, missing resource limits, root containers, and more.</p>
+        <div class="feat-tags"><span>YAML</span><span>Helm</span><span>Dockerfile</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('scan')">Try it →</button>
+      </div>
+
+      <div class="feature-card" data-feature="monitor" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <h3>Runtime Monitor</h3>
+        <p>Ingests and processes Falco security events in real time. Streams from a Unix socket or stdin pipeline and enriches each event with namespace, workload, and severity context.</p>
+        <div class="feat-tags"><span>Falco</span><span>Real-time</span><span>Kubernetes</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('monitor')">Try it →</button>
+      </div>
+
+      <div class="feature-card" data-feature="ai" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <h3>AI Behavioral Analyzer</h3>
+        <p>Python ML service using Isolation Forest to detect anomalous workload behavior. Scores events and surfaces outliers without relying on static signatures.</p>
+        <div class="feat-tags"><span>Python</span><span>Isolation Forest</span><span>Anomaly</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('ai')">Try it →</button>
+      </div>
+
+      <div class="feature-card" data-feature="forensics" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Forensic Vault</h3>
+        <p>Stores structured incident evidence with configurable retention, max-size pruning, and optional gzip compression. Keeps your audit trail lean and ready for investigation.</p>
+        <div class="feat-tags"><span>gzip</span><span>Retention</span><span>Evidence</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('forensics')">Try it →</button>
+      </div>
+
+      <div class="feature-card" data-feature="report" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <h3>Report Generator</h3>
+        <p>Produces investigation outputs in Markdown, JSON, and HTML. Generates incident timelines, violation summaries, and remediation notes from stored forensic evidence.</p>
+        <div class="feat-tags"><span>Markdown</span><span>JSON</span><span>HTML</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('report')">Try it →</button>
+      </div>
+
+      <div class="feature-card" data-feature="gemini" tabindex="0">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <h3>Gemini Enrichment</h3>
+        <p>Optional Google Gemini integration that classifies runtime incidents and generates narrative report sections—with redaction safeguards and a deterministic fallback when the API is unavailable.</p>
+        <div class="feat-tags"><span>Gemini</span><span>Optional</span><span>LLM</span></div>
+        <button class="feat-demo-btn" onclick="runFeatureDemo('gemini')">Try it →</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── DEMO TERMINAL ─────────────────────────────────────────────────────── -->
+<section class="section section-dark" id="demo">
+  <div class="container">
+    <h2 class="section-title">Interactive Demo</h2>
+    <p class="section-sub">Click a scenario below to watch KubeSentinel in action inside a simulated terminal.</p>
+    <div class="demo-scenarios">
+      <button class="scenario-btn active" onclick="selectScenario(this,'scan')">Static Scan</button>
+      <button class="scenario-btn" onclick="selectScenario(this,'monitor')">Runtime Monitor</button>
+      <button class="scenario-btn" onclick="selectScenario(this,'report')">Generate Report</button>
+      <button class="scenario-btn" onclick="selectScenario(this,'install')">Install</button>
+    </div>
+    <div class="demo-layout">
+      <div class="demo-terminal">
+        <div class="term-bar">
+          <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+          <span class="term-title" id="demo-term-title">kubesentinel scan</span>
+        </div>
+        <pre class="term-body" id="demo-term"></pre>
+      </div>
+      <div class="demo-info" id="demo-info">
+        <h3 id="demo-info-title">Static Policy Engine</h3>
+        <p id="demo-info-body">Scan Kubernetes manifests against 50+ built-in security rules before deployment. Catches critical misconfigurations such as privileged containers, missing resource limits, and host namespace sharing.</p>
+        <ul id="demo-info-list">
+          <li>Supports YAML, Helm, and Dockerfile</li>
+          <li>Configurable severity thresholds</li>
+          <li>Custom rule support via YAML</li>
+          <li>Exit code 1 on violations for CI/CD gating</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── COMMAND REFERENCE ─────────────────────────────────────────────────── -->
+<section class="section" id="commands">
+  <div class="container">
+    <h2 class="section-title">Command Reference</h2>
+    <p class="section-sub">Every command you need, in one place.</p>
+    <div class="cmd-tabs">
+      <button class="cmd-tab active" onclick="switchTab(this,'tab-scan')">scan</button>
+      <button class="cmd-tab" onclick="switchTab(this,'tab-monitor')">monitor</button>
+      <button class="cmd-tab" onclick="switchTab(this,'tab-report')">report</button>
+      <button class="cmd-tab" onclick="switchTab(this,'tab-config')">config</button>
+    </div>
+
+    <div id="tab-scan" class="cmd-panel active">
+      <div class="cmd-desc">
+        <p>Perform static analysis on Kubernetes manifests, Helm charts, and Dockerfiles. Detects misconfigurations before deployment.</p>
+      </div>
+      <div class="cmd-list">
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel scan --path ./manifests</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Scan all YAML files in a directory</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel scan --path ./deploy --severity high</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Filter results to HIGH and CRITICAL violations only</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel scan --path ./deploy --rules ./my-rules.yaml</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Include custom rule definitions</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel scan --path ./deploy --format json</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Output results as JSON (for CI pipelines)</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-monitor" class="cmd-panel">
+      <div class="cmd-desc">
+        <p>Stream and process Falco security events in real time. Supports Unix socket and stdin pipeline modes.</p>
+      </div>
+      <div class="cmd-list">
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel monitor</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Start monitoring with default config</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel monitor --namespace production --deployment api</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Filter events to a specific workload</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel monitor --source=socket</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Ingest Falco events via Unix socket</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubectl logs -n falco -l app=falco -f | kubesentinel monitor-stdin</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Pipe kubectl logs directly into KubeSentinel</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-report" class="cmd-panel">
+      <div class="cmd-desc">
+        <p>Generate investigation reports from forensic evidence. Supports Markdown, JSON, and HTML output formats.</p>
+      </div>
+      <div class="cmd-list">
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel report --incident-id &lt;id&gt;</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Generate a report for a specific incident</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown,json</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">Date-range report in multiple formats</span>
+        </div>
+        <div class="cmd-item">
+          <div class="cmd-line">
+            <code>kubesentinel report --incident-id &lt;id&gt; --format html --no-llm</code>
+            <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+          </div>
+          <span class="cmd-note">HTML report without Gemini enrichment</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-config" class="cmd-panel">
+      <div class="cmd-desc">
+        <p>KubeSentinel is configured via a YAML file. Below are the key configuration sections.</p>
+      </div>
+      <div class="config-block">
+        <div class="config-header">
+          <span>config.yaml</span>
+          <button class="copy-btn" onclick="copyBlock(this)" title="Copy config">⎘</button>
+        </div>
+        <pre class="config-body">forensics:
+  storage_path: "./forensics"
+  retention_days: 90
+  max_size_mb: 1000
+  compression: true
+
+reporting:
+  formats: ["json", "markdown", "html"]
+  output_path: "./reports"
+
+gemini:
+  enabled: false
+  classify_runtime: false
+  api_key: ""
+  model: "gemini-2.5-flash"
+  timeout_seconds: 15</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ARCHITECTURE ──────────────────────────────────────────────────────── -->
+<section class="section section-dark" id="architecture">
+  <div class="container">
+    <h2 class="section-title">How It Works</h2>
+    <p class="section-sub">KubeSentinel's pipeline covers the full security lifecycle from code commit to post-incident investigation.</p>
+    <div class="arch-flow">
+      <div class="arch-step">
+        <div class="arch-num">1</div>
+        <div class="arch-icon">📁</div>
+        <h4>Manifests &amp; Configs</h4>
+        <p>Your Kubernetes YAML, Helm charts, and Dockerfiles</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-step">
+        <div class="arch-num">2</div>
+        <div class="arch-icon">🔍</div>
+        <h4>Static Scan</h4>
+        <p>Policy engine checks configs against 50+ security rules</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-step">
+        <div class="arch-num">3</div>
+        <div class="arch-icon">📡</div>
+        <h4>Runtime Events</h4>
+        <p>Falco streams live security events from the running cluster</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-step">
+        <div class="arch-num">4</div>
+        <div class="arch-icon">🧠</div>
+        <h4>AI Analysis</h4>
+        <p>Isolation Forest scores events and surfaces anomalies</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-step">
+        <div class="arch-num">5</div>
+        <div class="arch-icon">📦</div>
+        <h4>Forensic Vault</h4>
+        <p>Evidence stored with retention, compression &amp; audit trail</p>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-step">
+        <div class="arch-num">6</div>
+        <div class="arch-icon">📄</div>
+        <h4>Reports</h4>
+        <p>Markdown, JSON, or HTML investigation reports</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── INSTALL ───────────────────────────────────────────────────────────── -->
+<section class="section" id="install">
+  <div class="container">
+    <h2 class="section-title">Installation</h2>
+    <p class="section-sub">KubeSentinel builds from source in seconds. Choose your platform below.</p>
+    <div class="os-tabs">
+      <button class="os-tab active" onclick="switchOS(this,'linux')" id="os-btn-linux">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.504 0C10.132..."/></svg>
+        Linux / macOS
+      </button>
+      <button class="os-tab" onclick="switchOS(this,'windows')" id="os-btn-windows">
+        Windows (PowerShell)
+      </button>
+    </div>
+
+    <div id="os-linux" class="install-panel active">
+      <ol class="install-steps">
+        <li>
+          <span class="step-num">1</span>
+          <div class="step-body">
+            <strong>Clone the repository</strong>
+            <div class="cmd-line mt-sm">
+              <code>git clone https://github.com/Tarekazabou/kubesentinel.git &amp;&amp; cd kubesentinel</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div class="step-body">
+            <strong>Run the install script</strong>
+            <div class="cmd-line mt-sm">
+              <code>bash scripts/install.sh</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+            <p class="step-note">Builds the binary and installs it to <code>/usr/local/bin</code>. Requires Go 1.21+.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div class="step-body">
+            <strong>Or use Make</strong>
+            <div class="cmd-line mt-sm">
+              <code>make -C scripts deps &amp;&amp; make -C scripts build</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+            <p class="step-note">Binary lands in <code>./bin/kubesentinel</code>.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div class="step-body">
+            <strong>Verify</strong>
+            <div class="cmd-line mt-sm">
+              <code>kubesentinel --help</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div id="os-windows" class="install-panel">
+      <ol class="install-steps">
+        <li>
+          <span class="step-num">1</span>
+          <div class="step-body">
+            <strong>Clone the repository</strong>
+            <div class="cmd-line mt-sm">
+              <code>git clone https://github.com/Tarekazabou/kubesentinel.git; cd kubesentinel</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div class="step-body">
+            <strong>Run the PowerShell install script</strong>
+            <div class="cmd-line mt-sm">
+              <code>.\scripts\install.ps1</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+            <p class="step-note">Builds and installs to <code>%LOCALAPPDATA%\Programs\kubesentinel\bin</code> and updates your user PATH. Requires Go 1.21+.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div class="step-body">
+            <strong>Reopen PowerShell, then verify</strong>
+            <div class="cmd-line mt-sm">
+              <code>kubesentinel --help</code>
+              <button class="copy-btn" onclick="copyCmd(this)" title="Copy">⎘</button>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="prereqs">
+      <h4>Prerequisites</h4>
+      <div class="prereq-grid">
+        <div class="prereq-item"><span class="prereq-name">Go</span><span class="prereq-ver">1.21+</span><span class="prereq-req required">Required</span></div>
+        <div class="prereq-item"><span class="prereq-name">Python</span><span class="prereq-ver">3.9+</span><span class="prereq-req">For AI module</span></div>
+        <div class="prereq-item"><span class="prereq-name">Docker</span><span class="prereq-ver">any</span><span class="prereq-req">For containerized runs</span></div>
+        <div class="prereq-item"><span class="prereq-name">Falco</span><span class="prereq-ver">any</span><span class="prereq-req">For runtime monitoring</span></div>
+        <div class="prereq-item"><span class="prereq-name">kubectl</span><span class="prereq-ver">any</span><span class="prereq-req">For cluster access</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ────────────────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="nav-title">KubeSentinel</span>
+      <p>CSPM · Runtime · AI Detection</p>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/Tarekazabou/kubesentinel" target="_blank">GitHub</a>
+      <a href="../docs/README.md">Docs</a>
+      <a href="../docs/quick-reference.md">Quick Reference</a>
+    </div>
+  </div>
+  <div class="footer-copy container">Built with Go, Python, and ❤️ for Kubernetes security.</div>
+</footer>
+
+<!-- ─── TOAST ─────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">Copied!</div>
+
+<script src="app.js"></script>
+</body>
+</html>
