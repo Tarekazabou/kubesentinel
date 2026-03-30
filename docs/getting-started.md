@@ -139,8 +139,9 @@ reporting:
 
 gemini:
   enabled: false
+  classify_runtime: false
   api_key: ""
-  model: "gemini-1.5-flash"
+  model: "gemini-2.5-flash"
   timeout_seconds: 15
 ```
 

@@ -40,7 +40,7 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
 - **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
 - **Forensic Vault**: Stores incident evidence with retention, max-size pruning, and optional gzip compression
 - **Report Generator**: Produces Markdown, JSON, and HTML investigation outputs
-- **Gemini Enrichment (Optional)**: Adds narrative findings/recommendations to reports with redaction and fallback
+- **Gemini Enrichment (Optional)**: Adds runtime incident classification metadata and report narratives with redaction and deterministic fallback
 
 ## Tech Stack
 
@@ -151,8 +151,9 @@ reporting:
 
 gemini:
   enabled: false
+  classify_runtime: false
   api_key: ""
-  model: "gemini-1.5-flash"
+  model: "gemini-2.5-flash"
   timeout_seconds: 15
 ```
 

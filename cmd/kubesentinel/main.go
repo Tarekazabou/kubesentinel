@@ -122,6 +122,11 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	vaultRetentionDays := viper.GetInt("forensics.retention_days")
 	vaultMaxSizeMB := viper.GetInt("forensics.max_size_mb")
 	vaultCompression := viper.GetBool("forensics.compression")
+	geminiEnabled := viper.GetBool("gemini.enabled")
+	geminiAPIKey := firstNonEmptyString(viper.GetString("gemini.api_key"), os.Getenv("GEMINI_API_KEY"))
+	geminiModel := viper.GetString("gemini.model")
+	geminiTimeoutSeconds := viper.GetInt("gemini.timeout_seconds")
+	geminiClassifyRuntime := viper.GetBool("gemini.classify_runtime")
 
 	// Allow config file or env to override
 	if aiEndpoint == "" {
@@ -135,18 +140,23 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	}
 
 	config := &runtime.MonitorConfig{
-		FalcoSocket:        "/run/falco/falco.sock",
-		BufferSize:         buffer,
-		Workers:            workers,
-		Namespace:          namespace,
-		Deployment:         deployment,
-		Source:             source,
-		AIEndpoint:         aiEndpoint,
-		PodName:            podFilter,
-		VaultStoragePath:   vaultStoragePath,
-		VaultRetentionDays: vaultRetentionDays,
-		VaultMaxSizeMB:     vaultMaxSizeMB,
-		VaultCompression:   vaultCompression,
+		FalcoSocket:           "/run/falco/falco.sock",
+		BufferSize:            buffer,
+		Workers:               workers,
+		Namespace:             namespace,
+		Deployment:            deployment,
+		Source:                source,
+		AIEndpoint:            aiEndpoint,
+		PodName:               podFilter,
+		VaultStoragePath:      vaultStoragePath,
+		VaultRetentionDays:    vaultRetentionDays,
+		VaultMaxSizeMB:        vaultMaxSizeMB,
+		VaultCompression:      vaultCompression,
+		GeminiEnabled:         geminiEnabled,
+		GeminiAPIKey:          geminiAPIKey,
+		GeminiModel:           geminiModel,
+		GeminiTimeoutSeconds:  geminiTimeoutSeconds,
+		GeminiClassifyRuntime: geminiClassifyRuntime,
 	}
 
 	monitor, err := runtime.NewMonitor(config)

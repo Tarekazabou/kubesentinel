@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"kubesentinel/internal/ai"
 	"kubesentinel/internal/forensics"
+	"kubesentinel/internal/llm"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,6 +19,7 @@ type EventProcessor struct {
 	Metrics          *ProcessorMetrics
 	AIClient         *ai.Client
 	Vault            *forensics.Vault
+	GeminiClient     *llm.GeminiClient
 	normalBuffer     []ai.FeatureVector
 	bufferMu         sync.Mutex
 	wg               sync.WaitGroup
@@ -336,6 +338,27 @@ func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	}
 
 	record := buildForensicRecord(event.Original, event.Features, event.RiskScore, event.Timestamp)
+	if ep.GeminiClient != nil && ep.GeminiClient.Enabled() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		classification, err := ep.GeminiClient.ClassifyRecord(ctx, record)
+		cancel()
+		if err != nil {
+			fmt.Printf("[GEMINI CLASSIFIER] classification failed, using deterministic incident type: %v\n", err)
+		} else {
+			if record.Metadata == nil {
+				record.Metadata = map[string]interface{}{}
+			}
+			if classification.IncidentType != "" {
+				record.Metadata["gemini_incident_type"] = classification.IncidentType
+				if classification.IncidentType != record.IncidentType {
+					record.Metadata["detected_incident_type"] = record.IncidentType
+					record.IncidentType = classification.IncidentType
+				}
+			}
+			record.Metadata["gemini_confidence"] = classification.Confidence
+			record.Metadata["gemini_reason"] = classification.Reason
+		}
+	}
 	return ep.Vault.StoreRecord(record)
 }
 

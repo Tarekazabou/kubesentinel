@@ -8,6 +8,7 @@ import (
 	"io"
 	"kubesentinel/internal/ai"
 	"kubesentinel/internal/forensics"
+	"kubesentinel/internal/llm"
 	"net"
 	"os"
 	"strings"
@@ -29,18 +30,23 @@ type Monitor struct {
 
 // MonitorConfig holds monitoring configuration
 type MonitorConfig struct {
-	FalcoSocket        string
-	BufferSize         int
-	Workers            int
-	Namespace          string
-	Deployment         string
-	Source             string // "socket" or "stdin"
-	AIEndpoint         string `json:"ai_endpoint"`
-	PodName            string `json:"pod_name"` // ← NEW
-	VaultStoragePath   string `json:"vault_storage_path"`
-	VaultRetentionDays int    `json:"vault_retention_days"`
-	VaultMaxSizeMB     int    `json:"vault_max_size_mb"`
-	VaultCompression   bool   `json:"vault_compression"`
+	FalcoSocket           string
+	BufferSize            int
+	Workers               int
+	Namespace             string
+	Deployment            string
+	Source                string // "socket" or "stdin"
+	AIEndpoint            string `json:"ai_endpoint"`
+	PodName               string `json:"pod_name"` // ← NEW
+	VaultStoragePath      string `json:"vault_storage_path"`
+	VaultRetentionDays    int    `json:"vault_retention_days"`
+	VaultMaxSizeMB        int    `json:"vault_max_size_mb"`
+	VaultCompression      bool   `json:"vault_compression"`
+	GeminiEnabled         bool   `json:"gemini_enabled"`
+	GeminiAPIKey          string `json:"gemini_api_key"`
+	GeminiModel           string `json:"gemini_model"`
+	GeminiTimeoutSeconds  int    `json:"gemini_timeout_seconds"`
+	GeminiClassifyRuntime bool   `json:"gemini_classify_runtime"`
 }
 
 // SecurityEvent represents a security event from Falco
@@ -94,6 +100,14 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 	}
 
 	processor := NewEventProcessor(config.Workers, aiClient, vault)
+	if config.GeminiEnabled && config.GeminiClassifyRuntime {
+		processor.GeminiClient = llm.NewGeminiClient(llm.GeminiConfig{
+			Enabled:        config.GeminiEnabled,
+			APIKey:         config.GeminiAPIKey,
+			Model:          config.GeminiModel,
+			TimeoutSeconds: config.GeminiTimeoutSeconds,
+		})
+	}
 
 	return &Monitor{
 		Config:    config,
