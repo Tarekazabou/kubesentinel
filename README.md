@@ -38,8 +38,9 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
 - **Static Policy Engine**: Detects risky Kubernetes configurations before deployment
 - **Runtime Monitor**: Streams and processes Falco security events
 - **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
-- **Forensic Vault**: Stores and organizes incident evidence
-- **Report Generator**: Produces investigation-friendly outputs
+- **Forensic Vault**: Stores incident evidence with retention, max-size pruning, and optional gzip compression
+- **Report Generator**: Produces Markdown, JSON, and HTML investigation outputs
+- **Gemini Enrichment (Optional)**: Adds narrative findings/recommendations to reports with redaction and fallback
 
 ## Tech Stack
 
@@ -115,7 +116,7 @@ Static scan example:
 Runtime monitor example:
 
 ```bash
-./bin/kubesentinel monitor --cluster minikube
+./bin/kubesentinel monitor --namespace production --deployment api
 ```
 
 ### Test
@@ -130,8 +131,29 @@ Common commands:
 
 ```bash
 ./bin/kubesentinel scan --path ./deploy
-./bin/kubesentinel monitor --cluster minikube
-./bin/kubesentinel report --from "2024-01-01" --to "2024-12-31"
+./bin/kubesentinel monitor --namespace production --deployment api --workers 4
+./bin/kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown,json
+./bin/kubesentinel report --incident-id <record-id> --format html --no-llm
+```
+
+Config highlights:
+
+```yaml
+forensics:
+  storage_path: "./forensics"
+  retention_days: 90
+  max_size_mb: 1000
+  compression: true
+
+reporting:
+  formats: ["json", "markdown", "html"]
+  output_path: "./reports"
+
+gemini:
+  enabled: false
+  api_key: ""
+  model: "gemini-1.5-flash"
+  timeout_seconds: 15
 ```
 
 ## Documentation

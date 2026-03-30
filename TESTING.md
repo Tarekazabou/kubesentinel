@@ -24,6 +24,8 @@ go test -v ./...
 
 ```bash
 go test -v ./internal/runtime
+go test -v ./internal/forensics
+go test -v ./internal/reporting
 go test -v ./pkg/...
 ```
 
@@ -111,7 +113,14 @@ go build -o ./bin/kubesentinel ./cmd/kubesentinel
 ### Start Runtime Monitor
 
 ```bash
-./bin/kubesentinel monitor --cluster minikube
+./bin/kubesentinel monitor --namespace production --deployment api
+```
+
+### Generate Forensic Reports
+
+```bash
+./bin/kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown,json
+./bin/kubesentinel report --incident-id <record-id> --format html --no-llm
 ```
 
 ## Known Issues and Fixes
@@ -146,6 +155,8 @@ mockClient := &ai.Client{
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Go Unit Tests | ✅ Pass | Concurrency and processor tests working |
+| Forensics Tests | ✅ Pass | Compression and max-size pruning verified |
+| Reporting Tests | ✅ Pass | Assembler and JSON/HTML output generation verified |
 | Python Tests | ✅ Setup Ready | Dependencies installable, test framework available |
 | Integration Tests | ⚠️ Requires AI Service | Run `python ai-module/server.py` first |
 | Static Analysis | ✅ Ready | `./bin/kubesentinel scan --path ./deploy` works |

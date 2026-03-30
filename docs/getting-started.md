@@ -62,7 +62,7 @@ make run-ai
 
 ```bash
 # In another terminal (requires Falco)
-./bin/kubesentinel monitor --cluster minikube
+./bin/kubesentinel monitor --namespace production --deployment api
 
 # Expected output:
 # Starting runtime monitor...
@@ -131,10 +131,17 @@ forensics:
   storage_path: "./forensics"
   retention_days: 90
   max_size_mb: 1000
+  compression: true
 
 reporting:
-  formats: ["json", "markdown"]
+  formats: ["json", "markdown", "html"]
   output_path: "./reports"
+
+gemini:
+  enabled: false
+  api_key: ""
+  model: "gemini-1.5-flash"
+  timeout_seconds: 15
 ```
 
 ## Usage Examples
@@ -204,14 +211,19 @@ jobs:
 ./bin/kubesentinel monitor --config ./custom-config.yaml
 ```
 
+**Read Falco events from stdin (for kubectl log pipelines):**
+```bash
+kubectl logs -n falco -l app=falco -f | ./bin/kubesentinel monitor-stdin --namespace production
+```
+
 ### Generating Reports
 
 **Generate Report for Time Range:**
 ```bash
 ./bin/kubesentinel report \
-  --from "2024-01-01" \
-  --to "2024-01-31" \
-  --format markdown \
+  --from "2026-03-01" \
+  --to "2026-03-31" \
+  --format markdown,json \
   --output ./reports
 ```
 
@@ -219,7 +231,12 @@ jobs:
 ```bash
 ./bin/kubesentinel report \
   --incident-id abc123 \
-  --format json
+  --format html
+```
+
+**Deterministic report only (disable Gemini even when enabled in config):**
+```bash
+./bin/kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown --no-llm
 ```
 
 ## Creating Custom Rules
@@ -308,11 +325,14 @@ Recommended thresholds:
 ### Viewing Stored Records
 
 ```bash
-# List all forensic records
+# List all forensic records (.json and .json.gz when compression is enabled)
 ls -lh ./forensics/
 
-# View a specific record
-cat ./forensics/20240215_143022_1234567890.json | jq .
+# View a specific uncompressed record
+cat ./forensics/<record>.json | jq .
+
+# View a specific compressed record
+gzip -dc ./forensics/<record>.json.gz | jq .
 ```
 
 ### Understanding Forensic Data
@@ -325,14 +345,12 @@ Each record contains:
 - **Network traces**: Connection details
 - **File operations**: Filesystem access patterns
 
-### Retention Management
+### Retention & Size Management
 
 ```bash
-# Manually cleanup old records
-find ./forensics -name "*.json" -mtime +90 -delete
-
-# Or let KubeSentinel handle it automatically
-# (configured via retention_days in config.yaml)
+# Vault cleanup and max-size enforcement are automatic during writes.
+# KubeSentinel prunes oldest low-value records first when max_size_mb is exceeded.
+# Critical/high records are retained whenever possible.
 ```
 
 ## Troubleshooting

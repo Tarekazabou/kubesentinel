@@ -69,7 +69,10 @@ make -C scripts build
 ./bin/kubesentinel scan --path ./deploy
 
 # Start runtime monitoring
-./bin/kubesentinel monitor --cluster minikube
+./bin/kubesentinel monitor --namespace production --deployment api
+
+# Generate forensic report
+./bin/kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown,json
 ```
 
 ## 📁 Project Structure
@@ -132,7 +135,7 @@ runtime:
   workers: 4
 
 ai:
-  endpoint: "localhost:50051"
+  endpoint: "http://localhost:5000"
   model_path: "./ai-module/models/baseline.pkl"
   threshold: 0.75
 
@@ -140,10 +143,17 @@ forensics:
   storage_path: "./forensics"
   retention_days: 90
   max_size_mb: 1000
+  compression: true
 
 reporting:
-  formats: ["json", "markdown"]
+  formats: ["json", "markdown", "html"]
   output_path: "./reports"
+
+gemini:
+  enabled: false
+  api_key: ""
+  model: "gemini-1.5-flash"
+  timeout_seconds: 15
 ```
 
 ## 🎮 Usage Examples
@@ -172,6 +182,9 @@ kubesentinel monitor --config ./my-config.yaml --namespace production
 
 # Monitor specific workload
 kubesentinel monitor --deployment my-app
+
+# Monitor Falco stream from stdin pipeline
+kubectl logs -n falco -l app=falco -f | kubesentinel monitor-stdin --namespace production
 ```
 
 ### 3. Generate Forensic Report
@@ -181,7 +194,10 @@ kubesentinel monitor --deployment my-app
 kubesentinel report --incident-id abc123 --format markdown
 
 # Generate comprehensive timeline
-kubesentinel report --from "2024-01-01" --to "2024-01-31"
+kubesentinel report --from "2026-03-01" --to "2026-03-31" --format markdown,json
+
+# Deterministic report only (disable LLM)
+kubesentinel report --from "2026-03-01" --to "2026-03-31" --no-llm
 ```
 
 ## 🔍 Key Features
@@ -213,6 +229,19 @@ Uses behavioral analysis to detect:
 - Zero-day exploits
 - Advanced persistent threats
 - Insider threats
+
+### Forensic Vault
+
+- Retains incident records with policy-aware filtering
+- Enforces max vault size by pruning oldest low-value records first
+- Supports optional compressed storage (`.json.gz`)
+
+### Optional Gemini Enrichment
+
+- Adds narrative and findings to generated reports
+- Appends AI-assisted remediation recommendations
+- Redacts sensitive fields before external API calls
+- Falls back to deterministic report generation on API failure
 
 ## 🧪 Testing
 

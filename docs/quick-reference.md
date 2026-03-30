@@ -58,6 +58,7 @@ make -C scripts clean       # Clean artifacts
 ./bin/kubesentinel monitor
 ./bin/kubesentinel monitor --namespace prod
 ./bin/kubesentinel monitor --deployment api
+kubectl logs -n falco -l app=falco -f | ./bin/kubesentinel monitor-stdin --namespace prod
 ```
 
 ### AI Service
@@ -69,7 +70,8 @@ curl http://localhost:5000/health    # Health check
 ### Reporting
 ```bash
 ./bin/kubesentinel report --incident-id <id>
-./bin/kubesentinel report --from 2024-01-01 --to 2024-12-31
+./bin/kubesentinel report --from 2026-03-01 --to 2026-03-31 --format markdown,json
+./bin/kubesentinel report --incident-id <id> --format html --no-llm
 ```
 
 ## Key Concepts
@@ -95,8 +97,8 @@ curl http://localhost:5000/health    # Health check
 ### Forensic Vault
 - Selective storage
 - Retention policies
-- JSON format
-- Policy-aware
+- Optional gzip storage (`.json.gz`)
+- Max-size enforcement with priority pruning
 
 ### Reporting
 - Multiple formats
@@ -134,6 +136,20 @@ forensics:
   storage_path: "./forensics"
   retention_days: 90
   max_size_mb: 1000
+  compression: true
+```
+
+### Reporting + Gemini
+```yaml
+reporting:
+  formats: ["json", "markdown", "html"]
+  output_path: "./reports"
+
+gemini:
+  enabled: false
+  api_key: ""
+  model: "gemini-1.5-flash"
+  timeout_seconds: 15
 ```
 
 ## Custom Rules
@@ -250,7 +266,7 @@ kubesentinel report --incident-id abc123 --format markdown
 - Config: `./config.yaml`
 
 ### Output
-- Forensics: `./forensics/*.json`
+- Forensics: `./forensics/*.{json,json.gz}`
 - Reports: `./reports/*.{md,json,html}`
 - Binary: `./bin/kubesentinel`
 
