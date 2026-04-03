@@ -10,7 +10,7 @@ BUILD_DIR=$(ROOT_DIR)/bin
 MAIN_PATH=$(ROOT_DIR)/cmd/kubesentinel
 AI_DIR=$(ROOT_DIR)/ai-module
 GO=go
-PYTHON?=python
+PYTHON?=python3
 PIP?=$(PYTHON) -m pip
 
 # Build information
@@ -31,8 +31,8 @@ deps: ## Install dependencies
 	$(GO) mod download
 	$(GO) mod tidy
 	@echo "Installing Python dependencies..."
-	$(PIP) install -r $(AI_DIR)/requirements.txt
-.PHONY: monitor-socket monitor-stdin
+	$(PIP) install --break-system-packages -r $(AI_DIR)/requirements.txt
+    .PHONY: monitor-socket monitor-stdin
 
 monitor-socket: build ## Run monitor using unix socket
 	$(BUILD_DIR)/$(BINARY_NAME) monitor --source=socket

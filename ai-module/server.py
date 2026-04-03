@@ -6,8 +6,9 @@ Provides behavioral anomaly detection using scikit-learn
 
 from email.policy import default
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify , send_from_directory
 from sklearn.ensemble import IsolationForest
+from flask_cors import CORS
 from sklearn.preprocessing import StandardScaler
 from flask import send_from_directory
 import numpy as np
@@ -17,8 +18,12 @@ import json
 import logging
 from datetime import datetime
 import os
+import google.generativeai as genai
+from pathlib import Path
+import glob
 
 app = Flask(__name__)
+CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -278,6 +283,22 @@ class AnomalyDetector:
 
 # Initialize detector
 detector = AnomalyDetector()
+# ============== GEMINI LLM SETUP ==============
+GEMINI_API_KEY = "AIzaSyAF8xky2TpK56DcAJ9wZme6Ne7wJE5zwVw"   # from your config.yaml
+
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash')   # or gemini-2.5-flash if available
+    logger.info("✅ Gemini LLM initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Gemini: {e}")
+    gemini_model = None
+    
+
+# Update the existing route if needed
+@app.route('/')
+def index():
+    return send_from_directory('dashboard', 'index.html')
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -340,6 +361,86 @@ def model_info():
         'contamination': detector.model.contamination if detector.model else None,
         'model_path': detector.model_path
     })
+@app.route('/api/incidents', methods=['GET'])
+def get_ai_incidents():
+    """Read incidents from forensics/ and enrich with Gemini where helpful"""
+    try:
+        forensics_dir = Path(__file__).parent.parent / "forensics"
+        if not forensics_dir.exists():
+            return jsonify({"incidents": [], "error": "forensics folder not found", "last_analysis": datetime.now().isoformat()})
+
+        incidents = []
+        
+        for json_file in sorted(glob.glob(str(forensics_dir / "*.json")), reverse=True)[:100]:  # limit to latest 100
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                metadata = data.get("metadata", {})
+                events = data.get("events", [{}])
+                
+                # Base incident object
+                incident = {
+                    "id": data.get("id", Path(json_file).stem),
+                    "timestamp": data.get("timestamp", ""),
+                    "incident_type": data.get("incident_type", "Unknown Event"),
+                    "severity": data.get("severity", "medium").lower(),
+                    "risk_score": round(data.get("risk_score", 0.5) * 100),
+                    "description": events[0].get("output", "No description available")[:220] + "..." if events else "No output",
+                    "container_name": data.get("container", {}).get("name", "N/A"),
+                    "pod_name": data.get("container", {}).get("pod_name", "N/A"),
+                    "ai_analysis": metadata.get("gemini_reason", "Behavioral anomaly detected."),
+                    "anomalies": [],
+                    "related_events": len(events),
+                    "raw_file": Path(json_file).name
+                }
+                
+                # Optional: Enhance ai_analysis with fresh Gemini call if the existing reason is too short/weak
+                if gemini_model and (len(incident["ai_analysis"]) < 100 or "explicitly stated" in incident["ai_analysis"].lower()):
+                    try:
+                        prompt = f"""
+                        Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
+                        Incident Type: {incident['incident_type']}
+                        Severity: {incident['severity']}
+                        Description: {incident['description']}
+                        Process: {metadata.get('process_name', 'N/A')}
+                        Container: {incident['container_name']} in pod {incident['pod_name']}
+                        
+                        Focus on why this is suspicious and what the security team should investigate.
+                        """
+                        response = gemini_model.generate_content(prompt)
+                        enhanced = response.text.strip()
+                        if len(enhanced) > 50:
+                            incident["ai_analysis"] = enhanced
+                    except Exception as gemini_err:
+                        logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
+                
+                # Optional ML enrichment (uncomment if you want fresh IsolationForest score)
+                # try:
+                #     features = metadata
+                #     ml_result = detector.predict(features)
+                #     incident["risk_score"] = round(ml_result["score"] * 100)
+                #     if ml_result.get("reason"):
+                #         incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
+                # except:
+                #     pass
+                
+                incidents.append(incident)
+                
+            except Exception as e:
+                logger.warning(f"Failed to process {json_file}: {e}")
+                continue
+        
+        return jsonify({
+            "incidents": incidents,
+            "last_analysis": datetime.now().isoformat(),
+            "total": len(incidents),
+            "using_gemini": gemini_model is not None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in /api/incidents: {e}")
+        return jsonify({"incidents": [], "error": str(e), "last_analysis": datetime.now().isoformat()}), 500
 
 if __name__ == '__main__':
     # Create models directory

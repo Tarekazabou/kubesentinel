@@ -338,8 +338,11 @@ func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	}
 
 	record := buildForensicRecord(event.Original, event.Features, event.RiskScore, event.Timestamp)
+	fmt.Printf("[GEMINI DEBUG] Client enabled=%v | ClassifyRuntime=%v\n",
+		ep.GeminiClient != nil && ep.GeminiClient.Enabled(),
+		ep.GeminiClient != nil)
 	if ep.GeminiClient != nil && ep.GeminiClient.Enabled() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		classification, err := ep.GeminiClient.ClassifyRecord(ctx, record)
 		cancel()
 		if err != nil {

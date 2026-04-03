@@ -108,35 +108,45 @@ var monitorStdinCmd = &cobra.Command{
 func runMonitor(cmd *cobra.Command, args []string) {
 	namespace, _ := cmd.Flags().GetString("namespace")
 	podFilter, _ := cmd.Flags().GetString("pod")
-
 	deployment, _ := cmd.Flags().GetString("deployment")
 	if podFilter != "" {
-		// Use Deployment field for pod filtering (your existing logic already does substring match)
 		deployment = podFilter
 	}
+
 	workers, _ := cmd.Flags().GetInt("workers")
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
 	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
-	vaultStoragePath := viper.GetString("forensics.storage_path")
-	vaultRetentionDays := viper.GetInt("forensics.retention_days")
-	vaultMaxSizeMB := viper.GetInt("forensics.max_size_mb")
-	vaultCompression := viper.GetBool("forensics.compression")
+
+	// Force reload config if --config flag was given
+	if cfgFile != "" {
+		viper.SetConfigFile(cfgFile)
+		if err := viper.ReadInConfig(); err == nil {
+			fmt.Println("Loaded config:", viper.ConfigFileUsed())
+		}
+	}
+
+	// Load Gemini settings reliably
 	geminiEnabled := viper.GetBool("gemini.enabled")
+	geminiClassifyRuntime := viper.GetBool("gemini.classify_runtime")
 	geminiAPIKey := firstNonEmptyString(viper.GetString("gemini.api_key"), os.Getenv("GEMINI_API_KEY"))
 	geminiModel := viper.GetString("gemini.model")
-	geminiTimeoutSeconds := viper.GetInt("gemini.timeout_seconds")
-	geminiClassifyRuntime := viper.GetBool("gemini.classify_runtime")
-
-	// Allow config file or env to override
-	if aiEndpoint == "" {
-		aiEndpoint = viper.GetString("ai.endpoint")
+	if geminiModel == "" {
+		geminiModel = "gemini-2.5-flash"
 	}
+	geminiTimeout := viper.GetInt("gemini.timeout_seconds")
+	if geminiTimeout <= 0 {
+		geminiTimeout = 15
+	}
+
 	if source == "" {
 		source = viper.GetString("monitor.source")
 	}
 	if source == "" {
-		source = "socket" // default
+		source = "socket"
+	}
+	if aiEndpoint == "" {
+		aiEndpoint = viper.GetString("ai.endpoint")
 	}
 
 	config := &runtime.MonitorConfig{
@@ -148,14 +158,14 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		Source:                source,
 		AIEndpoint:            aiEndpoint,
 		PodName:               podFilter,
-		VaultStoragePath:      vaultStoragePath,
-		VaultRetentionDays:    vaultRetentionDays,
-		VaultMaxSizeMB:        vaultMaxSizeMB,
-		VaultCompression:      vaultCompression,
+		VaultStoragePath:      viper.GetString("forensics.storage_path"),
+		VaultRetentionDays:    viper.GetInt("forensics.retention_days"),
+		VaultMaxSizeMB:        viper.GetInt("forensics.max_size_mb"),
+		VaultCompression:      viper.GetBool("forensics.compression"),
 		GeminiEnabled:         geminiEnabled,
 		GeminiAPIKey:          geminiAPIKey,
 		GeminiModel:           geminiModel,
-		GeminiTimeoutSeconds:  geminiTimeoutSeconds,
+		GeminiTimeoutSeconds:  geminiTimeout,
 		GeminiClassifyRuntime: geminiClassifyRuntime,
 	}
 
@@ -165,9 +175,10 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Starting monitor in %s mode...\n", source)
+	fmt.Printf("Starting monitor in %s mode... (Gemini enabled=%v, classify_runtime=%v)\n",
+		source, geminiEnabled, geminiClassifyRuntime)
 
-	// Graceful shutdown (unchanged)
+	// Graceful shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

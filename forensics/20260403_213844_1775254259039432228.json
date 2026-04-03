@@ -1,0 +1,87 @@
+{
+  "id": "1775254259039432228",
+  "timestamp": "2026-04-03T21:38:44.867644352Z",
+  "incident_type": "Read sensitive file untrusted",
+  "severity": "high",
+  "risk_score": 0.665752642155527,
+  "container": {
+    "id": "",
+    "name": "",
+    "image": "",
+    "namespace": "kubesentinel-test",
+    "pod_name": "insecure-test-pod",
+    "labels": {}
+  },
+  "events": [
+    {
+      "timestamp": "2026-04-03T21:38:44.867644352Z",
+      "rule": "Read sensitive file untrusted",
+      "priority": "Warning",
+      "output": "21:38:44.867644352: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=34816 container_id=c26b880dd562 container_name=vulnerable container_image_repository=docker.io/library/ubuntu container_image_tag=22.04 k8s_pod_name=insecure-test-pod k8s_ns_name=kubesentinel-test",
+      "fields": {
+        "container.id": "c26b880dd562",
+        "container.image.repository": "docker.io/library/ubuntu",
+        "container.image.tag": "22.04",
+        "container.name": "vulnerable",
+        "evt.time": 1775252324867644400,
+        "evt.type": "openat",
+        "fd.name": "/etc/shadow",
+        "k8s.ns.name": "kubesentinel-test",
+        "k8s.pod.name": "insecure-test-pod",
+        "proc.aname[2]": null,
+        "proc.aname[3]": null,
+        "proc.aname[4]": null,
+        "proc.cmdline": "cat /etc/shadow",
+        "proc.exepath": "/usr/bin/cat",
+        "proc.name": "cat",
+        "proc.pname": "sh",
+        "proc.tty": 34816,
+        "user.loginuid": -1,
+        "user.name": "root",
+        "user.uid": 0
+      }
+    }
+  ],
+  "system_calls": [
+    {
+      "timestamp": "2026-04-03T21:38:44.867644352Z",
+      "name": "openat",
+      "process": "cat",
+      "pid": 0,
+      "args": [
+        "cat /etc/shadow"
+      ],
+      "return_val": 0
+    }
+  ],
+  "network_traces": null,
+  "file_operations": [
+    {
+      "timestamp": "2026-04-03T21:38:44.867644352Z",
+      "operation": "read",
+      "file_path": "/etc/shadow",
+      "process": "cat",
+      "pid": 0,
+      "success": true
+    }
+  ],
+  "metadata": {
+    "command_line": "cat /etc/shadow",
+    "container_age": 0,
+    "container_id": "",
+    "day_of_week": 5,
+    "file_access_count": 1,
+    "namespace": "kubesentinel-test",
+    "network_conn_count": 0,
+    "parent_process": "sh",
+    "process_frequency": 1,
+    "process_name": "cat",
+    "sensitive_files": [
+      "/etc/shadow"
+    ],
+    "source": "syscall",
+    "time_of_day": 21,
+    "time_window": "2026-04-03-21",
+    "user_id": ""
+  }
+}

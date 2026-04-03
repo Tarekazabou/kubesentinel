@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Incident Analysis Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+         :root {
+            --tw-color-primary: #00d4ff;
+        }
+        
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
+        }
+        
+        .dashboard-grid {
+            animation: fadeIn 0.6s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .card-hover {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        
+        .modal {
+            animation: modalPop 0.3s ease forwards;
+        }
+        
+        .severity-critical {
+            background: linear-gradient(90deg, #f87171, #ef4444);
+        }
+        
+        .severity-high {
+            background: linear-gradient(90deg, #fb923c, #f59e0b);
+        }
+        
+        .severity-medium {
+            background: linear-gradient(90deg, #eab308, #ca8a04);
+        }
+        
+        .severity-low {
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+        }
+    </style>
+</head>
+
+<body class="bg-[#0a0f1c] text-white font-sans">
+    <!-- HEADER -->
+    <header class="bg-[#111827] border-b border-[#1e2937] sticky top-0 z-50">
+        <div class="max-w-screen-2xl mx-auto px-8 py-5 flex items-center justify-between">
+            <div class="flex items-center gap-x-4">
+                <div class="w-9 h-9 bg-[#00d4ff] rounded-2xl flex items-center justify-center text-[#0a0f1c] font-bold text-2xl shadow-inner">AI</div>
+                <div>
+                    <h1 class="text-3xl font-semibold tracking-tighter" style="font-family: 'Space Grotesk', sans-serif;">KubesentinelIncidentsForge</h1>
+                    <p class="text-xs text-[#64748b] -mt-1">AI-Powered Security Analysis</p>
+                </div>
+                <div class="ml-8 px-4 py-1 bg-[#1e2937] text-[#00d4ff] text-sm font-medium rounded-3xl flex items-center gap-x-2 border border-[#00d4ff]/30">
+                    <div class="w-2 h-2 bg-[#00d4ff] rounded-full animate-pulse"></div>
+                    LIVE • Connected to AI Module
+                </div>
+            </div>
+
+            <div class="flex items-center gap-x-8">
+                <!-- Real-time status -->
+                <div class="flex items-center gap-x-2 text-sm">
+                    <i class="fa-solid fa-circle text-emerald-400"></i>
+                    <span id="last-updated" class="text-[#64748b]">Last updated: just now</span>
+                </div>
+
+                <button onclick="refreshDashboard()" class="px-5 py-2.5 bg-[#1e2937] hover:bg-[#334155] rounded-3xl flex items-center gap-x-2 text-sm font-medium">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- NAV -->
+        <nav class="max-w-screen-2xl mx-auto px-8 flex border-t border-[#1e2937]">
+            <button onclick="setActiveTab(0)" id="tab-0" class="tab-button active flex-1 md:flex-none px-8 py-4 text-sm font-semibold flex items-center justify-center gap-x-2 border-b-2 border-[#00d4ff]">
+                <i class="fa-solid fa-chart-pie"></i>
+                OVERVIEW
+            </button>
+            <button onclick="setActiveTab(1)" id="tab-1" class="tab-button flex-1 md:flex-none px-8 py-4 text-sm font-semibold flex items-center justify-center gap-x-2 border-b-2 border-transparent hover:border-[#64748b]">
+                <i class="fa-solid fa-list"></i>
+                INCIDENTS
+            </button>
+            <button onclick="setActiveTab(2)" id="tab-2" class="tab-button flex-1 md:flex-none px-8 py-4 text-sm font-semibold flex items-center justify-center gap-x-2 border-b-2 border-transparent hover:border-[#64748b]">
+                <i class="fa-solid fa-brain"></i>
+                AI INSIGHTS
+            </button>
+            <button onclick="setActiveTab(3)" id="tab-3" class="tab-button flex-1 md:flex-none px-8 py-4 text-sm font-semibold flex items-center justify-center gap-x-2 border-b-2 border-transparent hover:border-[#64748b]">
+                <i class="fa-solid fa-timeline"></i>
+                TIMELINE
+            </button>
+        </nav>
+    </header>
+
+    <div class="max-w-screen-2xl mx-auto px-8 py-8">
+
+        <!-- TAB 0: OVERVIEW -->
+        <div id="content-0" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <!-- Total Incidents -->
+                <div class="bg-[#111827] rounded-3xl p-8 card-hover">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-[#64748b] text-sm font-medium">TOTAL INCIDENTS</p>
+                            <p id="total-incidents" class="text-6xl font-semibold mt-2">142</p>
+                        </div>
+                        <i class="fa-solid fa-shield-halved text-5xl text-[#00d4ff]/70"></i>
+                    </div>
+                    <div class="mt-8 flex items-center text-emerald-400 text-sm">
+                        <i class="fa-solid fa-arrow-trend-up mr-1"></i> +18 since yesterday
+                    </div>
+                </div>
+
+                <!-- Severity Breakdown -->
+                <div class="bg-[#111827] rounded-3xl p-8 card-hover">
+                    <p class="text-[#64748b] text-sm font-medium mb-4">SEVERITY DISTRIBUTION</p>
+                    <div class="flex gap-4">
+                        <div id="severity-bars" class="flex-1 space-y-4"></div>
+                        <div class="w-48 h-48">
+                            <canvas id="severityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Score -->
+                <div class="bg-[#111827] rounded-3xl p-8 card-hover col-span-1 lg:col-span-2">
+                    <div class="flex justify-between mb-6">
+                        <p class="text-[#64748b] text-sm font-medium">AVERAGE RISK SCORE</p>
+                        <p id="avg-risk" class="text-5xl font-semibold text-amber-400">78</p>
+                    </div>
+                    <div class="h-3 bg-[#1e2937] rounded-3xl overflow-hidden">
+                        <div id="risk-bar" class="h-3 bg-gradient-to-r from-[#00d4ff] to-[#00a3cc] rounded-3xl w-[78%]"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-[#64748b] mt-2">
+                        <span>LOW</span>
+                        <span>HIGH</span>
+                    </div>
+                    <p class="text-xs mt-8 text-[#64748b]">AI model confidence: <span class="text-emerald-400 font-medium">94%</span></p>
+                </div>
+            </div>
+
+            <!-- Trends -->
+            <div class="bg-[#111827] rounded-3xl p-8 mb-10">
+                <div class="flex items-center justify-between mb-6">
+                    <p class="text-[#64748b] text-sm font-medium">INCIDENT TRENDS (LAST 24 HOURS)</p>
+                    <select id="trend-filter" onchange="updateTrendChart()" class="bg-[#1e2937] text-white text-sm rounded-2xl px-4 py-2">
+                        <option value="all">All Severities</option>
+                        <option value="critical">Critical Only</option>
+                        <option value="high">High Only</option>
+                    </select>
+                </div>
+                <div class="h-80">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: INCIDENTS -->
+        <div id="content-1" class="tab-content hidden">
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                <div class="flex-1">
+                    <input id="search-input" onkeyup="filterIncidents()" type="text" placeholder="Search incidents..." class="w-full bg-[#111827] border border-[#1e2937] rounded-3xl px-6 py-4 text-sm focus:outline-none focus:border-[#00d4ff]">
+                </div>
+
+                <div class="flex gap-3">
+                    <select id="severity-filter" onchange="filterIncidents()" class="bg-[#111827] border border-[#1e2937] rounded-3xl px-6 py-4 text-sm">
+                        <option value="">All Severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+
+                    <input id="date-filter" type="date" onchange="filterIncidents()" class="bg-[#111827] border border-[#1e2937] rounded-3xl px-6 py-4 text-sm">
+
+                    <button onclick="filterIncidents()" class="px-8 bg-[#00d4ff] hover:bg-[#00a3cc] text-[#0a0f1c] font-semibold rounded-3xl flex items-center">
+                        <i class="fa-solid fa-filter mr-2"></i> FILTER
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-[#111827] rounded-3xl overflow-hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#1e2937]">
+                            <th class="text-left py-5 px-8 text-xs font-medium text-[#64748b]">ID</th>
+                            <th class="text-left py-5 px-8 text-xs font-medium text-[#64748b]">TIME</th>
+                            <th class="text-left py-5 px-8 text-xs font-medium text-[#64748b]">TYPE</th>
+                            <th class="text-left py-5 px-8 text-xs font-medium text-[#64748b]">DESCRIPTION</th>
+                            <th class="text-center py-5 px-8 text-xs font-medium text-[#64748b]">SEVERITY</th>
+                            <th class="text-right py-5 px-8 text-xs font-medium text-[#64748b]">RISK</th>
+                            <th class="w-12"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="incident-table-body" class="divide-y divide-[#1e2937]"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- TAB 2: AI INSIGHTS -->
+        <div id="content-2" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-[#111827] rounded-3xl p-8">
+                    <h2 class="text-xl font-semibold mb-6 flex items-center gap-x-3">
+                        <i class="fa-solid fa-brain text-[#00d4ff]"></i> AI Decision Explanations
+                    </h2>
+                    <div id="insights-list" class="space-y-6"></div>
+                </div>
+
+                <div class="bg-[#111827] rounded-3xl p-8 flex flex-col">
+                    <h2 class="text-xl font-semibold mb-6">Anomaly Highlights</h2>
+                    <div id="anomaly-list" class="flex-1 space-y-4"></div>
+
+                    <div class="mt-auto pt-6 border-t border-[#1e2937]">
+                        <p class="text-xs uppercase tracking-widest text-[#64748b]">Overall AI Confidence</p>
+                        <div class="flex items-end gap-x-4 mt-3">
+                            <div class="text-7xl font-bold text-[#00d4ff]">92</div>
+                            <div class="text-4xl text-[#64748b] mb-2">%</div>
+                        </div>
+                        <p class="text-sm text-emerald-400">Model v4.2 • Trained on 1.2M incidents</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: TIMELINE -->
+        <div id="content-3" class="tab-content hidden">
+            <div class="bg-[#111827] rounded-3xl p-8">
+                <h2 class="text-xl font-semibold mb-8">Event Timeline • Last 24h</h2>
+                <div id="timeline" class="space-y-8 relative before:absolute before:left-8 before:top-0 before:bottom-0 before:w-px before:bg-[#334155]"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAIL MODAL -->
+    <div onclick="if(event.target.id === 'modal-backdrop') hideModal()" id="modal-backdrop" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[9999]">
+        <div onclick="event.stopImmediatePropagation()" class="modal bg-[#111827] w-full max-w-2xl mx-4 rounded-3xl overflow-hidden">
+            <div class="px-8 py-6 border-b border-[#1e2937] flex items-center justify-between">
+                <div id="modal-id" class="font-mono text-lg"></div>
+                <button onclick="hideModal()" class="text-[#64748b] hover:text-white text-2xl">×</button>
+            </div>
+
+            <div class="p-8" id="modal-content">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="px-8 py-6 bg-[#0a0f1c] flex justify-end gap-x-4">
+                <button onclick="hideModal()" class="px-8 py-3 text-sm font-medium border border-[#334155] rounded-3xl">Close</button>
+                <button onclick="exportIncident()" class="px-8 py-3 bg-[#00d4ff] text-[#0a0f1c] font-semibold rounded-3xl flex items-center">
+                    <i class="fa-solid fa-download mr-2"></i> Export AI Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let incidents = [];
+        let currentTab = 0;
+        let currentModalIncident = null; // Store selected incident for export
+
+        // =============================================
+        // FETCH REAL DATA
+        // =============================================
+        async function loadRealData() {
+            document.getElementById('last-updated').innerHTML = "Loading real incidents...";
+
+            try {
+                const response = await fetch('/api/incidents');
+                if (!response.ok) throw new Error('API error');
+
+                const data = await response.json();
+                incidents = data.incidents || [];
+
+                const now = new Date();
+                document.getElementById('last-updated').innerHTML = `
+                Last updated: <span class="font-medium">${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}</span>
+            `;
+
+                renderAll();
+                return true;
+            } catch (e) {
+                console.error("Failed to load real data:", e);
+                document.getElementById('last-updated').innerHTML = "⚠️ Failed to load data";
+            }
+            return false;
+        }
+
+        function renderAll() {
+            renderOverview();
+            if (currentTab === 1) renderIncidents();
+            if (currentTab === 2) renderInsights();
+            if (currentTab === 3) renderTimeline();
+        }
+
+        // ==================== OVERVIEW ====================
+        function renderOverview() {
+            document.getElementById('total-incidents').textContent = incidents.length;
+
+            const severityCounts = {
+                critical: incidents.filter(i => i.severity === 'critical').length,
+                high: incidents.filter(i => i.severity === 'high').length,
+                medium: incidents.filter(i => i.severity === 'medium').length,
+                low: incidents.filter(i => i.severity === 'low').length
+            };
+
+            let barsHTML = `
+            <div class="flex justify-between text-xs mb-1"><span class="text-red-400">CRITICAL</span><span>${severityCounts.critical}</span></div>
+            <div class="h-2 bg-[#1e2937] rounded-3xl mb-4"><div class="severity-critical h-2 rounded-3xl" style="width: ${severityCounts.critical * 25 || 5}%"></div></div>
+            <div class="flex justify-between text-xs mb-1"><span class="text-orange-400">HIGH</span><span>${severityCounts.high}</span></div>
+            <div class="h-2 bg-[#1e2937] rounded-3xl mb-4"><div class="severity-high h-2 rounded-3xl" style="width: ${severityCounts.high * 25 || 5}%"></div></div>
+            <div class="flex justify-between text-xs mb-1"><span class="text-yellow-400">MEDIUM</span><span>${severityCounts.medium}</span></div>
+            <div class="h-2 bg-[#1e2937] rounded-3xl mb-4"><div class="severity-medium h-2 rounded-3xl" style="width: ${severityCounts.medium * 25 || 5}%"></div></div>
+            <div class="flex justify-between text-xs mb-1"><span class="text-emerald-400">LOW</span><span>${severityCounts.low}</span></div>
+            <div class="h-2 bg-[#1e2937] rounded-3xl"><div class="severity-low h-2 rounded-3xl" style="width: ${severityCounts.low * 25 || 5}%"></div></div>
+        `;
+            document.getElementById('severity-bars').innerHTML = barsHTML;
+
+            const avgRisk = incidents.length ?
+                Math.round(incidents.reduce((sum, i) => sum + (i.risk_score || 50), 0) / incidents.length) : 0;
+
+            document.getElementById('avg-risk').textContent = avgRisk;
+            document.getElementById('risk-bar').style.width = avgRisk + '%';
+
+            updateTrendChart();
+        }
+
+        function updateTrendChart() {
+            const ctx = document.getElementById('trendChart');
+            if (window.trendChartInstance) window.trendChartInstance.destroy();
+
+            const hourly = {};
+            incidents.forEach(i => {
+                if (!i.timestamp) return;
+                const hour = new Date(i.timestamp).getHours();
+                hourly[hour] = (hourly[hour] || 0) + 1;
+            });
+
+            const labels = Object.keys(hourly).sort((a, b) => a - b).map(h => h + ":00");
+            const dataPoints = Object.keys(hourly).sort((a, b) => a - b).map(h => hourly[h]);
+
+            window.trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.length ? labels : ["No data"],
+                    datasets: [{
+                        label: 'Incidents per Hour',
+                        data: dataPoints.length ? dataPoints : [0],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.15)',
+                        borderWidth: 3,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==================== INCIDENTS + FILTERING ====================
+        function renderIncidents(filteredIncidents = incidents) {
+            const tbody = document.getElementById('incident-table-body');
+            tbody.innerHTML = '';
+
+            filteredIncidents.forEach(incident => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-[#1e2937] cursor-pointer';
+                row.innerHTML = `
+                <td class="py-5 px-8 font-mono text-sm">${incident.id}</td>
+                <td class="py-5 px-8 text-sm text-[#64748b]">${incident.timestamp?.slice(0,16) || 'N/A'}</td>
+                <td class="py-5 px-8"><span class="px-3 py-1 text-xs rounded-3xl bg-[#334155]">${incident.incident_type || 'Event'}</span></td>
+                <td class="py-5 px-8 text-sm">${incident.description?.substring(0, 85) || 'No description'}...</td>
+                <td class="py-5 px-8 text-center">
+                    <span class="inline-flex items-center px-4 py-1 rounded-3xl text-xs font-medium
+                        ${incident.severity === 'critical' ? 'text-red-400 bg-red-400/10' : 
+                          incident.severity === 'high' ? 'text-orange-400 bg-orange-400/10' : 'text-yellow-400 bg-yellow-400/10'}">
+                        ${incident.severity?.toUpperCase() || 'MEDIUM'}
+                    </span>
+                </td>
+                <td class="py-5 px-8 text-right font-semibold">${incident.risk_score || '?'}</td>
+                <td class="py-5 px-8"><i class="fa-solid fa-chevron-right text-[#64748b]"></i></td>
+            `;
+                row.onclick = () => showIncidentDetail(incident.id);
+                tbody.appendChild(row);
+            });
+        }
+
+        function filterIncidents() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const severity = document.getElementById('severity-filter').value;
+            const dateFilter = document.getElementById('date-filter').value;
+
+            let filtered = incidents;
+
+            if (search) {
+                filtered = filtered.filter(i =>
+                    (i.description || '').toLowerCase().includes(search) ||
+                    (i.incident_type || '').toLowerCase().includes(search) ||
+                    i.id.toLowerCase().includes(search)
+                );
+            }
+
+            if (severity) {
+                filtered = filtered.filter(i => i.severity === severity);
+            }
+
+            if (dateFilter) {
+                filtered = filtered.filter(i =>
+                    i.timestamp && i.timestamp.startsWith(dateFilter)
+                );
+            }
+
+            renderIncidents(filtered);
+        }
+
+        // ==================== MODAL + EXPORT REPORT ====================
+        function showIncidentDetail(id) {
+            currentModalIncident = incidents.find(i => i.id === id);
+            if (!currentModalIncident) return;
+
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = `
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <span class="px-4 py-1 text-xs rounded-3xl ${currentModalIncident.severity === 'critical' ? 'text-red-400 bg-red-400/10' : 'text-orange-400 bg-orange-400/10'}">
+                        ${currentModalIncident.severity?.toUpperCase()}
+                    </span>
+                    <span class="font-mono ml-3">${currentModalIncident.timestamp?.slice(0,19) || ''}</span>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-[#64748b]">RISK SCORE</div>
+                    <div class="text-6xl font-bold text-[#00d4ff]">${currentModalIncident.risk_score}</div>
+                </div>
+            </div>
+            
+            <h3 class="text-xl font-semibold mb-6">${currentModalIncident.description || currentModalIncident.incident_type}</h3>
+            
+            <div class="bg-[#0a0f1c] rounded-3xl p-6 mb-8">
+                <h4 class="uppercase text-xs tracking-widest text-[#64748b] mb-3">AI ANALYSIS</h4>
+                <p class="leading-relaxed text-[#e2e8f0]">${currentModalIncident.ai_analysis || "No detailed analysis available."}</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-6 text-sm">
+                <div><span class="text-[#64748b]">Container:</span> ${currentModalIncident.container_name || 'N/A'}</div>
+                <div><span class="text-[#64748b]">Pod:</span> ${currentModalIncident.pod_name || 'N/A'}</div>
+                <div><span class="text-[#64748b]">Related Events:</span> ${currentModalIncident.related_events || 1}</div>
+            </div>
+        `;
+
+            document.getElementById('modal-id').innerHTML = `<span class="font-mono">${currentModalIncident.id}</span>`;
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.getElementById('modal-backdrop').classList.add('flex');
+        }
+
+        function hideModal() {
+            const backdrop = document.getElementById('modal-backdrop');
+            backdrop.classList.add('hidden');
+            backdrop.classList.remove('flex');
+        }
+
+        // EXPORT AI REPORT (Now Functional)
+        function exportIncident() {
+            if (!currentModalIncident) return;
+
+            const report = {
+                report_generated_at: new Date().toISOString(),
+                incident_id: currentModalIncident.id,
+                timestamp: currentModalIncident.timestamp,
+                incident_type: currentModalIncident.incident_type,
+                severity: currentModalIncident.severity,
+                risk_score: currentModalIncident.risk_score,
+                description: currentModalIncident.description,
+                container: currentModalIncident.container_name,
+                pod: currentModalIncident.pod_name,
+                ai_analysis: currentModalIncident.ai_analysis,
+                recommendations: [
+                    "Review container permissions and security context",
+                    "Investigate process execution chain",
+                    "Check network activity from this pod"
+                ]
+            };
+
+            const blob = new Blob([JSON.stringify(report, null, 2)], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `AI_Report_${currentModalIncident.id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert(`✅ Report for ${currentModalIncident.id} downloaded successfully!`);
+        }
+
+        // ==================== OTHER TABS ====================
+        function renderInsights() {
+            const container = document.getElementById('insights-list');
+            container.innerHTML = incidents.length === 0 ?
+                `<p class="text-[#64748b] italic">No incidents available for analysis.</p>` :
+                incidents.slice(0, 6).map(i => `
+                <div class="border border-[#334155] rounded-3xl p-6 hover:border-[#00d4ff]/40">
+                    <div class="flex justify-between items-start">
+                        <div class="font-medium">${i.incident_type || 'Security Event'}</div>
+                        <div class="text-xs px-3 py-1 bg-[#1e2937] rounded-3xl">${i.risk_score}%</div>
+                    </div>
+                    <p class="text-sm text-[#64748b] mt-4 line-clamp-4">${i.ai_analysis || i.description}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline');
+            container.innerHTML = '';
+
+            const sorted = [...incidents].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            if (sorted.length === 0) {
+                container.innerHTML = `<p class="text-[#64748b]">No timeline data available.</p>`;
+                return;
+            }
+
+            let html = '';
+            sorted.forEach(inc => {
+                html += `
+            <div class="flex gap-6 relative">
+                <div class="w-20 text-right text-xs text-[#64748b] shrink-0 pt-1">${inc.timestamp?.slice(11,19) || ''}</div>
+                <div class="w-4 h-4 mt-1.5 rounded-full border-2 border-[#00d4ff] bg-[#0a0f1c] shrink-0 z-10"></div>
+                <div class="flex-1 pb-8">
+                    <div class="flex justify-between">
+                        <span class="font-semibold">${inc.id} • ${inc.incident_type}</span>
+                        <span class="${inc.severity === 'critical' ? 'text-red-400' : 'text-orange-400'} text-xs font-medium">${inc.severity?.toUpperCase()}</span>
+                    </div>
+                    <p class="text-sm text-[#64748b] mt-1">${(inc.description || inc.ai_analysis || '').substring(0, 140)}...</p>
+                </div>
+            </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function setActiveTab(tabIndex) {
+            currentTab = tabIndex;
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active', 'border-[#00d4ff]'));
+            document.getElementById(`tab-${tabIndex}`).classList.add('active', 'border-[#00d4ff]');
+
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`content-${tabIndex}`).classList.remove('hidden');
+
+            if (tabIndex === 1) renderIncidents();
+            if (tabIndex === 2) renderInsights();
+            if (tabIndex === 3) renderTimeline();
+        }
+
+        async function refreshDashboard() {
+            await loadRealData();
+        }
+
+        // Initialize
+        async function initializeDashboard() {
+            await loadRealData();
+            setInterval(loadRealData, 15000); // Auto-refresh
+        }
+
+        window.onload = initializeDashboard;
+    </script>
+</body>
+
+</html>

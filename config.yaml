@@ -20,7 +20,7 @@ forensics:
   storage_path: "./forensics"
   retention_days: 90
   max_size_mb: 1000
-  compression: true
+  compression: false
 
 reporting:
   formats: ["json", "markdown"]
@@ -31,6 +31,6 @@ reporting:
 gemini:
   enabled: true
   classify_runtime: true
-  api_key: "AIzaSyDdZs4hh7qJobDzis8f6aqCq7B78Ha9BMg"
+  api_key: "AIzaSyAF8xky2TpK56DcAJ9wZme6Ne7wJE5zwVw"
   model: "gemini-2.5-flash"
   timeout_seconds: 15
