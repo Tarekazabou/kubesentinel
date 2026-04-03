@@ -90,6 +90,23 @@ else
     chmod +x "$BINARY_PATH"
 fi
 
+# Ensure /usr/local/bin is in path
+SHELL_CONFIG=""
+if [ -f "$HOME/.zshrc" ] ; then
+	SHELL_CONFIG="$HOME/.zshrc"
+elif [ -f "$HOME/.bashrc" ] ; then
+	SHELL_CONFIG="HOME/.bashrc"
+fi
+
+touch "$SHELL_CONFIG"
+
+if [ -n "$SHELL_CONFIG" ] ; then
+	if ! grep -q 'export PATH=.*\/usr\/local\/bin' "$SHELL_CONFIG"; then
+		echo 'export PATH=$PATH:/usr/local/bin' >> "$SHELL_CONFIG"
+		source "$SHELL_CONFIG"
+	fi
+fi
+
 # Verify installation
 echo -e "${YELLOW}Verifying installation...${NC}"
 if [ -f "$BINARY_PATH" ] && [ -x "$BINARY_PATH" ]; then
