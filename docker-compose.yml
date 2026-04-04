@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  # Go CLI + monitoring service
+  kubesentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kubesentinel
+    command: monitor --config /app/config/config.yaml
+    volumes:
+      # Mount config directory
+      - ./config:/app/config:ro
+      # Mount forensics (persistent)
+      - ./forensics:/app/forensics
+      # Mount reports (persistent)
+      - ./reports:/app/reports
+      # Mount Falco socket (from host, if available)
+      - /var/run/falco:/var/run/falco:ro
+    environment:
+      - LOG_LEVEL=info
+    depends_on:
+      ai-service:
+        condition: service_healthy
+    networks:
+      - kubesentinel-net
+
+  # Python AI/ML service
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: ai-service
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount models directory
+      - ./ai-module/models:/app/models
+      # Mount forensics (for reading incidents)
+      - ./forensics:/app/forensics:ro
+    environment:
+      - FLASK_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    networks:
+      - kubesentinel-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  kubesentinel-net:
+    driver: bridge
