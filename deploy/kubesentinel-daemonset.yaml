@@ -1,0 +1,342 @@
+---
+# ServiceAccount for KubeSentinel
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubesentinel
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+    version: v1
+
+---
+# ClusterRole for KubeSentinel RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubesentinel
+  labels:
+    app: kubesentinel
+    version: v1
+rules:
+  # Read pods for context and metadata enrichment
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read pod logs for forensics
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  
+  # Read events for anomaly context
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read namespaces for multi-tenancy support
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read nodes for system info
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read deployments for configuration context
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read network policies for security insights
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read RBAC for security posture assessment
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+    verbs: ["get", "list", "watch"]
+  
+  # Read pod security policies if present
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for KubeSentinel
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubesentinel
+  labels:
+    app: kubesentinel
+    version: v1
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubesentinel
+subjects:
+  - kind: ServiceAccount
+    name: kubesentinel
+    namespace: kubesentinel
+
+---
+# ConfigMap for KubeSentinel configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesentinel-config
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+    version: v1
+data:
+  config.yaml: |
+    static:
+      rules_path: "/etc/kubesentinel/rules"
+      severity_threshold: "medium"
+      output_format: "json"
+
+    runtime:
+      falco_socket: "unix:///run/falco/falco.sock"
+      buffer_size: 10000
+      workers: 4
+      namespace: ""  # Monitor all namespaces
+      deployment: "" # Monitor all deployments
+
+    ai:
+      endpoint: "http://kubesentinel-ai:5000"
+      model_path: "/data/models/baseline.pkl"
+      threshold: 0.75
+      health_check_interval: "30s"
+
+    forensics:
+      storage_path: "/data/forensics"
+      retention_days: 90
+      max_size_mb: 1000
+      compression: true
+
+    gemini:
+      enabled: false  # Set to true if GEMINI_API_KEY is available
+      api_key: ""
+      model: "gemini-2.5-flash"
+      classify_runtime: true
+      timeout_seconds: 15
+
+    reporting:
+      formats: ["markdown", "html", "json"]
+      output_path: "/data/reports"
+
+---
+# DaemonSet for KubeSentinel Runtime Monitoring
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubesentinel
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+    version: v1
+spec:
+  selector:
+    matchLabels:
+      app: kubesentinel
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: kubesentinel
+        version: v1
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: kubesentinel
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
+      
+      # Tolerate all taints including master/control-plane nodes
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          tolerationSeconds: 0
+        - effect: NoExecute
+          key: node.kubernetes.io/unreachable
+          tolerationSeconds: 0
+      
+      # Node selector for Linux nodes only
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      # Run on all node types
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/os
+                    operator: In
+                    values:
+                      - linux
+
+      containers:
+        - name: kubesentinel
+          image: curlimages/curl:latest  # Replace with actual kubesentinel image
+          imagePullPolicy: IfNotPresent
+          
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # This is a placeholder - replace with actual kubesentinel binary
+              # kubesentinel monitor --config=/etc/kubesentinel/config.yaml
+              echo "KubeSentinel monitoring daemon started"
+              tail -f /dev/null
+          
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kubesentinel-secrets
+                  key: gemini-api-key
+                  optional: true
+            - name: TRAINING_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: kubesentinel-secrets
+                  key: training-api-token
+                  optional: true
+          
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_RAW
+          
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          
+          # Mount Falco socket from host
+          volumeMounts:
+            - name: falco-socket
+              mountPath: /run/falco
+              readOnly: true
+            - name: config
+              mountPath: /etc/kubesentinel
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+            - name: run
+              mountPath: /run/kubesentinel
+
+          # Liveness probe
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -S /run/falco/falco.sock || exit 0  # Exit 0 if socket doesn't exist yet
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness probe
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "true"  # Simple readiness - always ready once started
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+      volumes:
+        # Mount Falco socket from the host
+        - name: falco-socket
+          hostPath:
+            path: /run/falco
+            type: DirectoryOrCreate
+        
+        # ConfigMap with configuration
+        - name: config
+          configMap:
+            name: kubesentinel-config
+            defaultMode: 0444
+        
+        # Persistent data volume for forensics and reports
+        - name: data
+          emptyDir:
+            sizeLimit: 2Gi
+        
+        # Temporary files
+        - name: tmp
+          emptyDir: {}
+        
+        # Runtime socket directory
+        - name: run
+          emptyDir: {}
+
+---
+# Service for the AI module (optional, if deploying AI module in K8s)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubesentinel-ai
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-ai
+    version: v1
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+  selector:
+    app: kubesentinel-ai
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubesentinel
+  labels:
+    app: kubesentinel

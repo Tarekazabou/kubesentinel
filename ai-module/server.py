@@ -21,6 +21,11 @@ import os
 import google.generativeai as genai
 from pathlib import Path
 import glob
+from dotenv import load_dotenv
+from functools import wraps
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -111,6 +116,7 @@ class AnomalyDetector:
         time_of_day = np.random.randint(0, 24, size=size)
         day_of_week = np.random.randint(0, 7, size=size)
         container_age = np.clip(np.random.exponential(scale=48, size=size), 0, 720)
+        unique_syscalls = np.random.poisson(lam=50, size=size)
 
         return np.column_stack([
             process_frequency,
@@ -120,6 +126,7 @@ class AnomalyDetector:
             time_of_day,
             day_of_week,
             container_age,
+            unique_syscalls,
         ])
 
     def _model_is_degenerate(self):
@@ -283,10 +290,38 @@ class AnomalyDetector:
 
 # Initialize detector
 detector = AnomalyDetector()
+
+# ============== AUTHENTICATION SETUP ==============
+TRAINING_API_TOKEN = os.environ.get('TRAINING_API_TOKEN')
+
+def require_train_token(f):
+    """Decorator to verify training API token"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        
+        # Check Bearer token format
+        if not auth_header.startswith('Bearer '):
+            logger.warning("Missing or invalid Authorization header format")
+            return jsonify({'error': 'Missing or invalid Authorization header'}), 401
+        
+        token = auth_header[7:]  # Remove 'Bearer ' prefix
+        
+        # Verify token matches
+        if not TRAINING_API_TOKEN or token != TRAINING_API_TOKEN:
+            logger.warning(f"Invalid training token attempt")
+            return jsonify({'error': 'Invalid token'}), 403
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
 # ============== GEMINI LLM SETUP ==============
-GEMINI_API_KEY = "AIzaSyAF8xky2TpK56DcAJ9wZme6Ne7wJE5zwVw"   # from your config.yaml
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
 try:
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY environment variable not set")
     genai.configure(api_key=GEMINI_API_KEY)
     gemini_model = genai.GenerativeModel('gemini-2.5-flash')   # or gemini-2.5-flash if available
     logger.info("✅ Gemini LLM initialized successfully")
@@ -305,15 +340,17 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'model_loaded': detector.model is not None
+@require_train_token
+def train():
+    """Model training endpoint - requires Bearer token authorizationor.model is not None
     })
 @app.route('/models/baseline.pkl', methods=['GET'])
 def download_model():
     return send_from_directory('models', 'baseline.pkl', as_attachment=True)
 @app.route('/predict', methods=['POST'])
+@require_train_token
 def predict():
-    """Anomaly prediction endpoint"""
+    """Anomaly prediction endpoint - requires Bearer token authorization"""
     try:
         data = request.get_json()
         
@@ -362,8 +399,9 @@ def model_info():
         'model_path': detector.model_path
     })
 @app.route('/api/incidents', methods=['GET'])
+@require_train_token
 def get_ai_incidents():
-    """Read incidents from forensics/ and enrich with Gemini where helpful"""
+    """Read incidents from forensics/ and enrich with Gemini where helpful - requires Bearer token authorization"""
     try:
         forensics_dir = Path(__file__).parent.parent / "forensics"
         if not forensics_dir.exists():

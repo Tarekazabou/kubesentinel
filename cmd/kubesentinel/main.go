@@ -3,12 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -23,6 +27,74 @@ var (
 	cfgFile string
 	version = "0.1.0"
 )
+
+// ============== PROMETHEUS METRICS ==============
+var (
+	falcoEventsProcessed = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kubesentinel_falco_events_total",
+			Help: "Total number of Falco events processed",
+		},
+		[]string{"severity"},
+	)
+
+	anomaliesDetected = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kubesentinel_anomalies_detected_total",
+			Help: "Total number of anomalies detected",
+		},
+		[]string{"severity", "type"},
+	)
+
+	monitorDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "kubesentinel_event_process_duration_seconds",
+			Help:    "Time taken to process security events (in seconds)",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"event_type"},
+	)
+
+	scanDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "kubesentinel_scan_duration_seconds",
+			Help:    "Time taken to scan manifests (in seconds)",
+			Buckets: []float64{0.1, 0.5, 1, 2, 5, 10},
+		},
+		[]string{"status"},
+	)
+
+	acctiveConnections int64
+)
+
+func init() {
+	prometheus.MustRegister(falcoEventsProcessed)
+	prometheus.MustRegister(anomaliesDetected)
+	prometheus.MustRegister(monitorDuration)
+	prometheus.MustRegister(scanDuration)
+	prometheus.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "kubesentinel_active_connections",
+			Help: "Number of active client connections",
+		},
+		func() float64 { return float64(atomic.LoadInt64(&acctiveConnections)) },
+	))
+}
+
+func startMetricsServer(port string) {
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	go func() {
+		fmt.Printf("📊 Prometheus metrics available at http://0.0.0.0:%s/metrics\n", port)
+		if err := http.ListenAndServe(":" + port, nil); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("Metrics server error: %v\n", err)
+		}
+	}()
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "kubesentinel",
@@ -77,14 +149,25 @@ misconfigurations before deployment.`,
 			os.Exit(1)
 		}
 
-		// TODO: better output formatting + exit code based on violations
+		// Check for violations and exit with appropriate code
+		violationsFound := false
 		for _, r := range results {
 			if !r.Passed {
+				violationsFound = true
 				fmt.Printf("Violations in %s:\n", r.FilePath)
 				for _, v := range r.Violations {
 					fmt.Printf("  - %s: %s\n", v.RuleID, v.Description)
 				}
 			}
+		}
+
+		// Exit with code 2 if violations found, 0 if all passed
+		if violationsFound {
+			fmt.Println("\n❌ Scan completed with violations found!")
+			os.Exit(2)
+		} else {
+			fmt.Println("\n✅ Scan completed successfully - no violations found!")
+			os.Exit(0)
 		}
 	},
 }
@@ -109,6 +192,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	namespace, _ := cmd.Flags().GetString("namespace")
 	podFilter, _ := cmd.Flags().GetString("pod")
 	deployment, _ := cmd.Flags().GetString("deployment")
+	metricsPort, _ := cmd.Flags().GetString("metrics-port")
 	if podFilter != "" {
 		deployment = podFilter
 	}
@@ -117,6 +201,11 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
 	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
+
+	// Start metrics server early
+	if metricsPort != "" {
+		startMetricsServer(metricsPort)
+	}
 
 	// Force reload config if --config flag was given
 	if cfgFile != "" {
@@ -344,6 +433,7 @@ func init() {
 	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
 	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
+	monitorCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
 
 	// monitor-stdin command flags (duplicate for consistency)
 	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
@@ -352,7 +442,7 @@ func init() {
 	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
 	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	// report command
+	monitorStdinCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
 	reportCmd := &cobra.Command{
 		Use:   "report",
 		Short: "Generate forensic investigation reports",
