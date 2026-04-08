@@ -11,7 +11,6 @@
 - [About](#about)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
@@ -20,8 +19,8 @@
   - [Test](#test)
 - [Usage](#usage)
 - [Documentation](#documentation)
-- [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Roadmap](#roadmap)
 - [License](#license)
 
 ## About
@@ -48,6 +47,12 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
 - **Python 3.9+** for ML/anomaly detection
 - **Kubernetes** (Minikube/Kind supported)
 - **Falco** for runtime security events
+
+## 👨‍💻 For Developers
+
+- **[DEVELOPERS.md](DEVELOPERS.md)** - Quick start guide for contributors
+- **[docs/REPOSITORY-STRUCTURE.md](docs/REPOSITORY-STRUCTURE.md)** - Repository organization and file placement
+- **[docs/PROJECT-GUIDE.md](docs/PROJECT-GUIDE.md)** - Contribution guidelines
 
 ## Project Structure
 
@@ -159,11 +164,27 @@ gemini:
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
-- [Architecture](docs/architecture.md)
-- [Project Guide](docs/PROJECT-GUIDE.md)
-- [Quick Reference](docs/quick-reference.md)
-- [Implementation Roadmap](docs/implementation-roadmap.md)
+Complete documentation is organized in the [docs/](docs/) directory:
+
+### 🚀 Getting Started
+- [Getting Started Guide](docs/getting-started.md) - Installation and first run
+- [CSPM Quick Start](CSPM-QUICK-START.md) - Python CSPM module guide
+- [Quick Reference](docs/quick-reference.md) - Command reference and examples
+
+### 🏗️ Architecture & Design
+- [Architecture](docs/architecture.md) - System design and components
+- [Project Guide](docs/PROJECT-GUIDE.md) - Project structure and guidelines
+- [Repository Structure](docs/REPOSITORY-STRUCTURE.md) - Directory organization and file placement
+
+### ☸️ Deployment & Operations
+- [Kubernetes Deployment](deploy/KUBERNETES-DEPLOYMENT.md) - K8s DaemonSet, RBAC, and production setup
+- [Prometheus Metrics](docs/PROMETHEUS-METRICS.md) - Observability, metrics, and alerting
+- [Docker Compose Setup](docker-compose.yml) - Local development stack
+
+### 📚 Additional Resources
+- [Testing Guide](TESTING.md) - Test strategies and running tests
+- [Implementation Roadmap](docs/implementation-roadmap.md) - Planned features
+- [Documentation Index](docs/README.md) - Complete documentation index with search table
 
 ## Roadmap
 

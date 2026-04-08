@@ -276,9 +276,74 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 MIT License - see [LICENSE](LICENSE)
 
+## � Complete Documentation Index
+
+### Getting Started
+
+- [**getting-started.md**](getting-started.md) - Step-by-step installation and first run guide for all platforms
+- [**CSPM-QUICK-START.md**](../CSPM-QUICK-START.md) - Quick start for the Python CSPM scanning module
+- [**quick-reference.md**](quick-reference.md) - Command reference and common usage patterns
+
+### Core Documentation
+
+- [**PROJECT-GUIDE.md**](PROJECT-GUIDE.md) - Project overview and contribution guidelines
+- [**architecture.md**](architecture.md) - System architecture, design patterns, and component interactions
+- [**implementation-roadmap.md**](implementation-roadmap.md) - Feature roadmap and planned enhancements
+- [**REPOSITORY-STRUCTURE.md**](REPOSITORY-STRUCTURE.md) - Repository organization and file placement guidelines
+
+### Deployment & Operations
+
+- [**KUBERNETES-DEPLOYMENT.md**](../deploy/KUBERNETES-DEPLOYMENT.md) - Complete Kubernetes deployment guide with RBAC
+  - DaemonSet configuration
+  - Security best practices
+  - Troubleshooting guide
+  - Production recommendations
+
+- [**PROMETHEUS-METRICS.md**](PROMETHEUS-METRICS.md) - Prometheus metrics and observability
+  - Available metrics reference
+  - Prometheus configuration examples
+  - Grafana dashboard setup
+  - Alert rules
+
+### Configuration
+
+- [**config.yaml**](../config/config.yaml) - Main application configuration template
+- [**kubesentinel-daemonset.yaml**](../deploy/kubesentinel-daemonset.yaml) - Kubernetes DaemonSet with full RBAC
+- [**kubesentinel-secrets-template.yaml**](../deploy/kubesentinel-secrets-template.yaml) - Kubernetes Secrets template
+
+### API & Integration
+
+- **AI Module API** - See `ai-module/server.py` for:
+  - `/predict` - Anomaly detection endpoint (Bearer token protected)
+  - `/train` - Model training endpoint (Bearer token protected)
+  - `/api/incidents` - Forensics data retrieval (Bearer token protected)
+  - `/metrics` - Prometheus metrics
+  
+- **Go Packages** - See `pkg/` and `internal/` for detailed package documentation
+
+### Testing & Quality
+
+- [**TESTING.md**](../TESTING.md) - Testing strategies, unit tests, and integration tests
+
+### Quick Navigation
+
+| Task | Documentation |
+|------|-----------------|
+| **I want to...** |  |
+| Get started quickly | [getting-started.md](getting-started.md) |
+| Understand the architecture | [architecture.md](architecture.md) |
+| Deploy to Kubernetes | [KUBERNETES-DEPLOYMENT.md](../deploy/KUBERNETES-DEPLOYMENT.md) |
+| Setup monitoring/metrics | [PROMETHEUS-METRICS.md](PROMETHEUS-METRICS.md) |
+| Find commands | [quick-reference.md](quick-reference.md) |
+| Navigate the codebase | [REPOSITORY-STRUCTURE.md](REPOSITORY-STRUCTURE.md) |
+| Contribute code | [PROJECT-GUIDE.md](PROJECT-GUIDE.md) |
+| Use CSPM module | [CSPM-QUICK-START.md](../CSPM-QUICK-START.md) |
+| Run tests | [TESTING.md](../TESTING.md) |
+| See the roadmap | [implementation-roadmap.md](implementation-roadmap.md) |
+
 ## 🔗 Resources
 
-- [Documentation](docs/)
-- [API Reference](docs/api.md)
-- [Architecture Deep Dive](docs/architecture.md)
-- [Security Best Practices](docs/security.md)
+- [Full Documentation Index](#-complete-documentation-index)
+- [Architecture Deep Dive](architecture.md)
+- [Kubernetes Deployment Guide](../deploy/KUBERNETES-DEPLOYMENT.md)
+- [Prometheus Metrics Guide](PROMETHEUS-METRICS.md)
