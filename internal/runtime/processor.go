@@ -23,6 +23,8 @@ type EventProcessor struct {
 	normalBuffer     []ai.FeatureVector
 	bufferMu         sync.Mutex
 	wg               sync.WaitGroup
+	WarmupMinutes    int
+	warmupComplete   atomic.Bool
 }
 
 // ProcessorMetrics tracks processing statistics
@@ -86,6 +88,8 @@ func (ep *EventProcessor) TrainBaseline(ctx context.Context) {
 		fmt.Println("[BASELINE] ✅ Model successfully retrained!")
 	}
 }
+
+// NewEventProcessor creates a new event processor with optional warm-up phase
 func NewEventProcessor(workers int, aiClient *ai.Client, vault ...*forensics.Vault) *EventProcessor {
 	var forensicVault *forensics.Vault
 	if len(vault) > 0 {
@@ -102,17 +106,44 @@ func NewEventProcessor(workers int, aiClient *ai.Client, vault ...*forensics.Vau
 			ErrorCount:        0,
 			AICalls:           0,
 		},
-		AIClient:     aiClient,
-		Vault:        forensicVault,
-		normalBuffer: make([]ai.FeatureVector, 0, 200), // pre-allocate
+		AIClient:       aiClient,
+		Vault:          forensicVault,
+		normalBuffer:   make([]ai.FeatureVector, 0, 200),
+		WarmupMinutes:  10,            // default warm-up period
+		warmupComplete: atomic.Bool{}, // starts false
 	}
 
-	// === AUTO TRAINING TICKER (calls your TrainBaseline every 2 minutes) ===
+	// === WARM-UP PHASE (one-shot) ===
+	if ep.WarmupMinutes > 0 {
+		ep.wg.Add(1)
+		go func() {
+			defer ep.wg.Done()
+			fmt.Printf("[WARMUP] Starting %d-minute baseline collection phase...\n", ep.WarmupMinutes)
+
+			// One-shot timer for warm-up duration
+			timer := time.NewTimer(time.Duration(ep.WarmupMinutes) * time.Minute)
+			defer timer.Stop()
+
+			<-timer.C
+
+			ep.warmupComplete.Store(true)
+			fmt.Printf("[WARMUP] ✅ Warm-up complete after %d minutes. Anomaly detection now active.\n", ep.WarmupMinutes)
+
+			// Optional: force one immediate baseline update with any collected normal events
+			ep.TrainBaseline(context.Background())
+		}()
+	} else {
+		ep.warmupComplete.Store(true) // no warm-up → immediately active
+	}
+
+	// === AUTO TRAINING TICKER (runs after warm-up) ===
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			ep.TrainBaseline(context.Background())
+			if ep.warmupComplete.Load() {
+				ep.TrainBaseline(context.Background())
+			}
 		}
 	}()
 
@@ -244,7 +275,26 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	features := ep.FeatureExtractor.Extract(event)
 	fmt.Printf("[PROC] Extracted features for %s | file_access=%d | sensitive=%d\n",
 		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
+	if !ep.warmupComplete.Load() {
+		// Treat as normal during warm-up and feed to baseline immediately
+		aiVec := ep.toAIFeatureVector(features, event)
+		ep.bufferMu.Lock()
+		if len(ep.normalBuffer) < 200 {
+			ep.normalBuffer = append(ep.normalBuffer, aiVec)
+		}
+		ep.bufferMu.Unlock()
 
+		// Optional: push directly to AI baseline
+		_ = ep.AIClient.UpdateBaseline(context.Background(), []ai.FeatureVector{aiVec})
+
+		return ProcessedEvent{
+			Original:  event,
+			Features:  features,
+			Timestamp: time.Now(),
+			RiskScore: 0.0,
+			Anomaly:   false,
+		}, nil
+	}
 	riskScore := ep.getAIRiskScore(features, event)
 
 	isAnomaly := riskScore >= 0.5

@@ -31,7 +31,7 @@ app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+ENRICH_WITH_GEMINI = os.getenv('ENRICH_WITH_GEMINI', 'false').lower() in ('true', '1', 'yes')
 class AnomalyDetector:
     """Anomaly detection using Isolation Forest"""
     MODEL_VERSION = 2
@@ -51,7 +51,9 @@ class AnomalyDetector:
             'unique_syscalls'
         ]
         self.load_or_create_model()
-        
+        self.warmup_complete = False
+        self.warmup_samples = 0
+        self.warmup_threshold = 300
     def load_or_create_model(self):
         """Load existing model or create new one"""
         if os.path.exists(self.model_path):
@@ -180,30 +182,43 @@ class AnomalyDetector:
         return np.array(features).reshape(1, -1)
     
     def predict(self, features):
-        """Predict if behavior is anomalous"""
+        """Predict if behavior is anomalous – with warm-up phase"""
         try:
-            # Extract and scale features
             X = self.extract_features(features)
             X_scaled = self.scaler.transform(X)
-            
-            # Get prediction (-1 for anomaly, 1 for normal)
+
+            if not self.warmup_complete:
+                # === WARM-UP PHASE ===
+                # Treat as normal and incrementally improve the model
+                # We fit on a small batch including this sample to avoid single-point overfitting
+                batch = np.vstack([X_scaled, self._create_bootstrap_data(10)])
+                self.model.fit(self.scaler.transform(batch))   # incremental fit
+
+                self.warmup_samples += 1
+                if self.warmup_samples >= self.warmup_threshold:
+                    self.warmup_complete = True
+                    self.save_model()
+                    logger.info(f"Warm-up complete after {self.warmup_samples} samples. Anomaly detection now active.")
+
+                return {
+                    'is_anomaly': False,
+                    'score': 0.0,
+                    'confidence': 1.0,
+                    'reason': f"Warm-up phase – collecting baseline ({self.warmup_samples}/{self.warmup_threshold})",
+                    'suggestions': ["Baseline collection in progress – AI scoring will activate soon"]
+                }
+
+            # === NORMAL ANOMALY SCORING PHASE ===
             prediction = self.model.predict(X_scaled)[0]
-            
-            # Get anomaly score (lower is more anomalous)
             score = self.model.score_samples(X_scaled)[0]
-            
-            # Convert score to 0-1 range (higher is more anomalous)
             normalized_score = 1 / (1 + np.exp(score))
-            
+
             is_anomaly = prediction == -1
             confidence = abs(score)
-            
-            # Generate reason
+
             reason = self._generate_reason(features, is_anomaly, normalized_score)
-            
-            # Generate suggestions
             suggestions = self._generate_suggestions(features, is_anomaly)
-            
+
             return {
                 'is_anomaly': bool(is_anomaly),
                 'score': float(normalized_score),
@@ -211,6 +226,7 @@ class AnomalyDetector:
                 'reason': reason,
                 'suggestions': suggestions
             }
+
         except Exception as e:
             logger.error(f"Prediction error: {str(e)}")
             raise
@@ -340,10 +356,23 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
+        'model_loaded': detector.model is not None
+    })
+@app.route('/warmup/status', methods=['GET'])
+def warmup_status():
+    return jsonify({
+        "warmup_complete": detector.warmup_complete,
+        "samples_collected": detector.warmup_samples,
+        "threshold": detector.warmup_threshold
+    })
+@app.route('/models/baseline.pkl', methods=['GET'])
+def download_model():
+    return send_from_directory('models', 'baseline.pkl', as_attachment=True)
+
+@app.route('/train', methods=['POST'])
 @require_train_token
 def train():
-    """Model training endpoint - requires Bearer token authorizationor.model is not None
-    })
+    """Model training endpoint - requires Bearer token authorization"""
 @app.route('/models/baseline.pkl', methods=['GET'])
 def download_model():
     return send_from_directory('models', 'baseline.pkl', as_attachment=True)
@@ -432,7 +461,19 @@ def get_ai_incidents():
                     "related_events": len(events),
                     "raw_file": Path(json_file).name
                 }
-                
+                if ENRICH_WITH_GEMINI and gemini_model and (
+                    len(incident.get("ai_analysis", "")) < 100 or 
+                    "explicitly stated" in incident.get("ai_analysis", "").lower()
+                ):
+                    try:
+                        prompt = f"""..."""  # keep existing prompt
+                        response = gemini_model.generate_content(prompt)
+                        enhanced = response.text.strip()
+                        if len(enhanced) > 50:
+                            incident["ai_analysis"] = enhanced
+                    except Exception as gemini_err:
+                        logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
+                # fall back gracefully - do NOT fail the whole endpoint
                 # Optional: Enhance ai_analysis with fresh Gemini call if the existing reason is too short/weak
                 if gemini_model and (len(incident["ai_analysis"]) < 100 or "explicitly stated" in incident["ai_analysis"].lower()):
                     try:
@@ -473,7 +514,7 @@ def get_ai_incidents():
             "incidents": incidents,
             "last_analysis": datetime.now().isoformat(),
             "total": len(incidents),
-            "using_gemini": gemini_model is not None
+            "using_gemini_enrichment": ENRICH_WITH_GEMINI and gemini_model is not None
         })
         
     except Exception as e:

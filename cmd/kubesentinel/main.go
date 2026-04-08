@@ -90,7 +90,7 @@ func startMetricsServer(port string) {
 
 	go func() {
 		fmt.Printf("📊 Prometheus metrics available at http://0.0.0.0:%s/metrics\n", port)
-		if err := http.ListenAndServe(":" + port, nil); err != nil && err != http.ErrServerClosed {
+		if err := http.ListenAndServe(":"+port, nil); err != nil && err != http.ErrServerClosed {
 			fmt.Printf("Metrics server error: %v\n", err)
 		}
 	}()
@@ -434,7 +434,7 @@ func init() {
 	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
 	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
 	monitorCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
-
+	monitorCmd.Flags().Int("warmup-minutes", 10, "Minutes to collect baseline before enabling anomaly detection")
 	// monitor-stdin command flags (duplicate for consistency)
 	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
 	monitorStdinCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")

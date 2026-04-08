@@ -47,6 +47,7 @@ type MonitorConfig struct {
 	GeminiModel           string `json:"gemini_model"`
 	GeminiTimeoutSeconds  int    `json:"gemini_timeout_seconds"`
 	GeminiClassifyRuntime bool   `json:"gemini_classify_runtime"`
+	WarmupMinutes         int    `json:"warmup_minutes"` // default 10
 }
 
 // SecurityEvent represents a security event from Falco
