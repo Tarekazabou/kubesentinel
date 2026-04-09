@@ -72,9 +72,9 @@ clean: ## Remove build artifacts
 
 test: ## Run tests
 	@echo "Running Go tests..."
-	$(GO) test -v -race -cover ./...
+	cd $(ROOT_DIR) && $(GO) test -v -race -cover ./...
 	@echo "Running Python tests..."
-	cd ai-module && $(PYTHON) -m pytest tests/ -v || echo "No Python tests found"
+	cd $(AI_DIR) && $(PYTHON) -m pytest tests/ -v || echo "No Python tests found"
 
 test-coverage: ## Run tests with coverage report
 	@echo "Running tests with coverage..."
