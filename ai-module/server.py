@@ -313,13 +313,13 @@ else:
     gemini_model = None
 
 
-def _validate_json_payload(required_key: str) -> tuple[Dict[str, Any] | None, Any | None, Any | None]:
+def _validate_json_payload(required_key: str) -> tuple[Dict[str, Any] | None, Any | None, int | None]:
     if request.content_length and request.content_length > MAX_REQUEST_BYTES:
-        return None, jsonify({"error": "Request payload too large"}), 413
+        return None, None, 413
 
     data = request.get_json(silent=True)
     if not isinstance(data, dict) or required_key not in data:
-        return None, jsonify({"error": f"Missing {required_key} in request"}), 400
+        return None, None, 400
 
     value = data[required_key]
     return data, value, None
@@ -363,9 +363,11 @@ def warmup_status():
 @app.route("/predict", methods=["POST"])
 @require_api_token
 def predict():
-    _, features, error = _validate_json_payload("features")
-    if error:
-        return error
+    _, features, status_code = _validate_json_payload("features")
+    if status_code == 413:
+        return jsonify({"error": "Request payload too large"}), 413
+    if status_code == 400:
+        return jsonify({"error": "Missing features in request"}), 400
 
     validation_error = _validate_feature_dict(features)
     if validation_error:
@@ -378,9 +380,11 @@ def predict():
 @app.route("/train", methods=["POST"])
 @require_api_token
 def train():
-    _, training_data, error = _validate_json_payload("training_data")
-    if error:
-        return error
+    _, training_data, status_code = _validate_json_payload("training_data")
+    if status_code == 413:
+        return jsonify({"error": "Request payload too large"}), 413
+    if status_code == 400:
+        return jsonify({"error": "Missing training_data in request"}), 400
 
     if not isinstance(training_data, list) or not training_data:
         return jsonify({"error": "training_data must be a non-empty list"}), 400
@@ -478,7 +482,16 @@ def get_ai_incidents():
         )
     except Exception as exc:
         logger.error("Error in /api/incidents: %s", exc)
-        return jsonify({"incidents": [], "error": str(exc), "last_analysis": datetime.now().isoformat()}), 500
+        return (
+            jsonify(
+                {
+                    "incidents": [],
+                    "error": "Internal incident processing error",
+                    "last_analysis": datetime.now().isoformat(),
+                }
+            ),
+            500,
+        )
 
 
 if __name__ == "__main__":
