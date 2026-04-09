@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -17,6 +19,7 @@ type Client struct {
 	Endpoint   string
 	HTTPClient *http.Client
 	Threshold  float64
+	APIToken   string
 }
 
 // AnomalyRequest represents a request to the AI service
@@ -70,9 +73,16 @@ func NewClient(endpoint string, threshold float64) *Client {
 	return &Client{
 		Endpoint:  endpoint,
 		Threshold: threshold,
+		APIToken:  strings.TrimSpace(os.Getenv("TRAINING_API_TOKEN")),
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+	}
+}
+
+func (c *Client) setAuthHeader(req *http.Request) {
+	if strings.TrimSpace(c.APIToken) != "" {
+		req.Header.Set("Authorization", "Bearer "+c.APIToken)
 	}
 }
 
@@ -100,6 +110,7 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeader(req)
 
 	// Send request
 	resp, err := c.doWithRetry(ctx, req)
@@ -169,6 +180,7 @@ func (c *Client) UpdateBaseline(ctx context.Context, trainingData []FeatureVecto
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeader(req)
 
 	// Send request
 	resp, err := c.doWithRetry(ctx, req)

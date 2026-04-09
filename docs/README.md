@@ -307,7 +307,7 @@ MIT License - see [LICENSE](LICENSE)
 
 ### Configuration
 
-- [**config.yaml**](../config/config.yaml) - Main application configuration template
+- [**config.yaml**](../config.yaml) - Main application configuration template
 - [**kubesentinel-daemonset.yaml**](../deploy/kubesentinel-daemonset.yaml) - Kubernetes DaemonSet with full RBAC
 - [**kubesentinel-secrets-template.yaml**](../deploy/kubesentinel-secrets-template.yaml) - Kubernetes Secrets template
 

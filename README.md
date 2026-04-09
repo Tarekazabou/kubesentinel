@@ -162,6 +162,8 @@ gemini:
   timeout_seconds: 15
 ```
 
+Use `GEMINI_API_KEY` as the canonical secret source (environment variable); keep `gemini.api_key` empty in committed config files.
+
 ## Documentation
 
 Complete documentation is organized in the [docs/](docs/) directory:
@@ -200,4 +202,4 @@ Contributions are welcome. Open an issue for bugs/feature requests and submit a 
 
 ## License
 
-No license file is currently present in this repository. Add one (for example MIT/Apache-2.0) to define reuse terms.
+This project is licensed under the [MIT License](LICENSE).

@@ -29,8 +29,8 @@ reporting:
   include_timeline: true
 
 gemini:
-  enabled: true
+  enabled: false
   classify_runtime: true
-  api_key: "AIzaSyAF8xky2TpK56DcAJ9wZme6Ne7wJE5zwVw"
+  api_key: ""
   model: "gemini-2.5-flash"
   timeout_seconds: 15

@@ -185,7 +185,7 @@ kubesentinel/
 
 ### Adding Configuration
 
-- Default config template: `config/config.yaml`
+- Default config template: `config.yaml`
 - Security rules: `config/rules/`
 - Secrets template: `deploy/kubesentinel-secrets-template.yaml`
 - Environment variables: Root `.env` file (git-ignored)

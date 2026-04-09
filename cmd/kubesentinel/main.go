@@ -412,6 +412,19 @@ func firstNonEmptyString(values ...string) string {
 	return ""
 }
 
+func registerMonitorFlags(cmd *cobra.Command, includeSource bool) {
+	cmd.Flags().StringP("namespace", "n", "", "Namespace filter")
+	cmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
+	cmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
+	cmd.Flags().Int("workers", 4, "Number of processing workers")
+	cmd.Flags().Int("buffer", 10000, "Event channel buffer size")
+	if includeSource {
+		cmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
+	}
+	cmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
+	cmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -425,24 +438,9 @@ func init() {
 	scanCmd.Flags().String("severity", "medium", "Minimum severity threshold (low, medium, high, critical)")
 
 	// monitor command flags
-	// monitor command flags
-	monitorCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
-	monitorCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
-	monitorCmd.Flags().Int("workers", 4, "Number of processing workers")
-	monitorCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
-	monitorCmd.Flags().String("source", "", "Event source: socket | stdin (default: socket)")
-	monitorCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	monitorCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
+	registerMonitorFlags(monitorCmd, true)
 	monitorCmd.Flags().Int("warmup-minutes", 10, "Minutes to collect baseline before enabling anomaly detection")
-	// monitor-stdin command flags (duplicate for consistency)
-	monitorStdinCmd.Flags().StringP("namespace", "n", "", "Namespace filter")
-	monitorStdinCmd.Flags().StringP("pod", "p", "", "Pod name filter (exact or substring)")
-	monitorStdinCmd.Flags().StringP("deployment", "d", "", "Deployment filter (substring)")
-	monitorStdinCmd.Flags().Int("workers", 4, "Number of processing workers")
-	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
-	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
-	monitorStdinCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
+	registerMonitorFlags(monitorStdinCmd, false)
 	reportCmd := &cobra.Command{
 		Use:   "report",
 		Short: "Generate forensic investigation reports",

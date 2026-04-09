@@ -7,10 +7,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: kubesentinel
-    command: monitor --config /app/config/config.yaml
+    command: monitor --config /app/config.yaml
     volumes:
-      # Mount config directory
-      - ./config:/app/config:ro
+      # Mount config file
+      - ./config.yaml:/app/config.yaml:ro
       # Mount forensics (persistent)
       - ./forensics:/app/forensics
       # Mount reports (persistent)
@@ -19,6 +19,7 @@ services:
       - /var/run/falco:/var/run/falco:ro
     environment:
       - LOG_LEVEL=info
+      - TRAINING_API_TOKEN=${TRAINING_API_TOKEN:-}
     depends_on:
       ai-service:
         condition: service_healthy
@@ -41,6 +42,8 @@ services:
     environment:
       - FLASK_ENV=production
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - TRAINING_API_TOKEN=${TRAINING_API_TOKEN:-}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     networks:
       - kubesentinel-net
     healthcheck:

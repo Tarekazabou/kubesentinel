@@ -98,7 +98,7 @@ type FileOperation struct {
 // NewVault creates a new forensic vault
 func NewVault(config *VaultConfig) (*Vault, error) {
 	// Create storage directory if it doesn't exist
-	if err := os.MkdirAll(config.StoragePath, 0755); err != nil {
+	if err := os.MkdirAll(config.StoragePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -342,7 +342,7 @@ func (v *Vault) findFilesByRecordID(id string) ([]string, error) {
 }
 
 func (v *Vault) writeRecord(path string, data []byte) error {
-	file, err := os.Create(path)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

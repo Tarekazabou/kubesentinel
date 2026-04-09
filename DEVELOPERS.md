@@ -117,7 +117,7 @@ Example: Adding a new ML model
 | `internal/reporting/generator.go` | Report creation and formatting |
 | `ai-module/server.py` | ML anomaly detection service |
 | `pkg/scanner/scanner.go` | Static manifest scanning engine |
-| `config/config.yaml` | Configuration template |
+| `config.yaml` | Configuration template |
 | `deploy/kubesentinel-daemonset.yaml` | K8s DaemonSet with RBAC |
 
 ### Code Navigation Tips

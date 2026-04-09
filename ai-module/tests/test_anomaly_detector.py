@@ -35,7 +35,7 @@ def test_detector_initialization(detector):
     assert detector is not None
     assert detector.model is not None
     assert detector.scaler is not None
-    assert len(detector.feature_names) == 7
+    assert len(detector.feature_names) == 8
     assert detector.feature_names == [
         'process_frequency',
         'file_access_count',
@@ -43,7 +43,8 @@ def test_detector_initialization(detector):
         'sensitive_files',
         'time_of_day',
         'day_of_week',
-        'container_age'
+        'container_age',
+        'unique_syscalls',
     ]
 
 
@@ -57,12 +58,13 @@ def test_extract_features(detector):
         'time_of_day': 14,
         'day_of_week': 2,
         'container_age': 3600,
+        'unique_syscalls': 8,
         'process_name': 'cat',           # ignored extra field
         'random_garbage': True
     }
     
     X = detector.extract_features(sample)
-    assert X.shape == (1, 7)
+    assert X.shape == (1, 8)
     assert np.allclose(X[0, 0], 15)      # process_frequency
     assert np.allclose(X[0, 1], 42)      # file_access_count
     assert np.allclose(X[0, 3], 1)       # sensitive_files
@@ -79,6 +81,7 @@ def test_predict_normal_behavior(detector):
         'time_of_day': 10,
         'day_of_week': 1,
         'container_age': 7200,
+        'unique_syscalls': 2,
     }
     
     result = detector.predict(normal_sample)
@@ -102,6 +105,7 @@ def test_predict_suspicious_behavior(detector):
         'time_of_day': 3,               # middle of night
         'day_of_week': 6,
         'container_age': 300,           # very young container
+        'unique_syscalls': 40,
     }
     
     result = detector.predict(suspicious)
