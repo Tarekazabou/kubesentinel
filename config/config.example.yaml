@@ -31,6 +31,6 @@ reporting:
 gemini:
   enabled: true
   classify_runtime: true
-  api_key: ""
+  api_key: ""  # Set via GEMINI_API_KEY environment variable
   model: "gemini-2.5-flash"
   timeout_seconds: 15

@@ -192,8 +192,10 @@ class AnomalyDetector:
                 # === WARM-UP PHASE ===
                 # Treat as normal and incrementally improve the model
                 # We fit on a small batch including this sample to avoid single-point overfitting
-                batch = np.vstack([X_scaled, self._create_bootstrap_data(10)])
-                self.model.fit(self.scaler.transform(batch))   # incremental fit
+                # Stack raw feature data (not pre-scaled) and scale once before fitting
+                batch_raw = np.vstack([X[0], self._create_bootstrap_data(10)])
+                batch_scaled = self.scaler.transform(batch_raw)
+                self.model.fit(batch_scaled)   # incremental fit
 
                 self.warmup_samples += 1
                 if self.warmup_samples >= self.warmup_threshold:
@@ -367,15 +369,9 @@ def warmup_status():
         "threshold": detector.warmup_threshold
     })
 @app.route('/models/baseline.pkl', methods=['GET'])
-def download_model():
-    return send_from_directory('models', 'baseline.pkl', as_attachment=True)
-
-@app.route('/train', methods=['POST'])
 @require_train_token
-def train():
-    """Model training endpoint - requires Bearer token authorization"""
-@app.route('/models/baseline.pkl', methods=['GET'])
 def download_model():
+    """Download model file - requires Bearer token authorization"""
     return send_from_directory('models', 'baseline.pkl', as_attachment=True)
 @app.route('/predict', methods=['POST'])
 @require_train_token
@@ -398,8 +394,9 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/train', methods=['POST'])
+@require_train_token
 def train():
-    """Model training endpoint"""
+    """Model training endpoint - requires Bearer token authorization"""
     try:
         data = request.get_json()
         

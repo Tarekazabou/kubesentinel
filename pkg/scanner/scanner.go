@@ -3,6 +3,7 @@ package scanner
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -51,6 +52,19 @@ func NewScanner(config *ScanConfig) (*Scanner, error) {
 		return nil, err
 	}
 	return &Scanner{RulesEngine: engine, Config: config}, nil
+}
+
+// supportedWorkloadKinds checks if a resource kind has container specs
+func (s *Scanner) supportedWorkloadKinds(kind string) bool {
+	supported := map[string]bool{
+		"Pod":         true,
+		"Deployment":  true,
+		"DaemonSet":   true,
+		"StatefulSet": true,
+		"Job":         true,
+		"CronJob":     true,
+	}
+	return supported[kind]
 }
 
 // ScanPath scans all YAML files in the given path
@@ -211,7 +225,7 @@ func (s *Scanner) scanResource(resource K8sResource) []types.Violation {
 
 // checkPrivilegedContainers checks for privileged container configurations
 func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violation {
-	if resource.Kind != "Pod" && resource.Kind != "Deployment" {
+	if !s.supportedWorkloadKinds(resource.Kind) {
 		return nil
 	}
 
@@ -236,7 +250,7 @@ func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violati
 
 // checkResourceLimits checks for missing CPU/memory limits
 func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
-	if resource.Kind != "Pod" && resource.Kind != "Deployment" {
+	if !s.supportedWorkloadKinds(resource.Kind) {
 		return nil
 	}
 
@@ -270,7 +284,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 
 // checkNonRootUser checks if containers run as non-root
 func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
-	if resource.Kind != "Pod" && resource.Kind != "Deployment" {
+	if !s.supportedWorkloadKinds(resource.Kind) {
 		return nil
 	}
 
@@ -302,7 +316,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 
 // checkReadOnlyRootFS checks for read-only root filesystem
 func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
-	if resource.Kind != "Pod" && resource.Kind != "Deployment" {
+	if !s.supportedWorkloadKinds(resource.Kind) {
 		return nil
 	}
 
@@ -326,7 +340,7 @@ func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
 
 // checkSecurityContext checks for comprehensive security context
 func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
-	if resource.Kind != "Pod" && resource.Kind != "Deployment" {
+	if !s.supportedWorkloadKinds(resource.Kind) {
 		return nil
 	}
 
@@ -413,17 +427,24 @@ func (s *Scanner) getResourceName(resource K8sResource) string {
 func (s *Scanner) discoverManifests(path string) ([]string, error) {
 	var files []string
 
-	matches, err := filepath.Glob(filepath.Join(path, "*.yaml"))
-	if err != nil {
-		return nil, err
-	}
-	files = append(files, matches...)
+	err := filepath.WalkDir(path, func(filePath string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip directories and hidden/special directories
+		if d.IsDir() {
+			// Skip .git, vendor, and other common exclusions
+			if strings.HasPrefix(d.Name(), ".") || d.Name() == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Match .yaml and .yml files
+		if strings.HasSuffix(d.Name(), ".yaml") || strings.HasSuffix(d.Name(), ".yml") {
+			files = append(files, filePath)
+		}
+		return nil
+	})
 
-	matches, err = filepath.Glob(filepath.Join(path, "*.yml"))
-	if err != nil {
-		return nil, err
-	}
-	files = append(files, matches...)
-
-	return files, nil
+	return files, err
 }
