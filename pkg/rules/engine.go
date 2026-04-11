@@ -33,7 +33,7 @@ type RulesEngine struct {
 
 func (e *RulesEngine) LoadRules(path string) error {
 	// Load built-in rules first (fixed path)
-	builtInPath := "./configs/rules/built-in-rules.yaml"
+	builtInPath := "./config/rules/build-in-rules.yaml"
 	builtInData, err := ioutil.ReadFile(builtInPath)
 	if err != nil {
 		fmt.Printf("Warning: Built-in rules file not found at %s: %v\n", builtInPath, err)

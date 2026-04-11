@@ -16,7 +16,7 @@ services:
       # Mount reports (persistent)
       - ./reports:/app/reports
       # Mount Falco socket (from host, if available)
-      - /var/run/falco:/var/run/falco:ro
+      - /run/falco:/run/falco:ro
     environment:
       - LOG_LEVEL=info
     depends_on:

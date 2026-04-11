@@ -10,7 +10,7 @@ COPY ai-module/ ./
 RUN mkdir -p /app/forensics /app/models
 
 EXPOSE 5000
-HEALTHCHECK --interval=30s --timeout=100s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; response = requests.get('http://localhost:5000/health'); exit(0) if response.status_code == 200 else exit(1)"
 
-CMD ["python", "app.py"]
+CMD ["python", "server.py"]

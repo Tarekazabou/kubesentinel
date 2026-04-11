@@ -1,4 +1,58 @@
 ---
+# Namespace (must be created first)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubesentinel
+  labels:
+    app: kubesentinel
+
+---
+# PersistentVolume for KubeSentinel data (Minikube hostPath)
+# For production clusters, replace with your storage backend (e.g., NFS, EBS, local storage)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kubesentinel-data-pv
+  labels:
+    app: kubesentinel
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data/kubesentinel
+    type: DirectoryOrCreate
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: Exists
+
+---
+# PersistentVolumeClaim for KubeSentinel data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kubesentinel-data-pvc
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  selector:
+    matchLabels:
+      app: kubesentinel
+
+---
 # ServiceAccount for KubeSentinel
 apiVersion: v1
 kind: ServiceAccount
@@ -128,6 +182,121 @@ data:
     reporting:
       formats: ["markdown", "html", "json"]
       output_path: "/data/reports"
+  
+  build-in-rules.yaml: |
+    - id: BUILT-IN-001
+      name: Disallow Privileged Containers
+      description: Running containers in privileged mode grants excessive permissions, increasing attack surface.
+      severity: critical
+      kind: [Pod, Deployment, StatefulSet, DaemonSet]
+      checks:
+        - path: spec.containers[*].securityContext.privileged
+          operator: equals
+          value: true
+      remediation: Set securityContext.privileged to false. Use specific capabilities instead of full privilege.
+
+    - id: BUILT-IN-002
+      name: Require runAsNonRoot
+      description: Containers should not run as root to minimize privilege escalation risks.
+      severity: high
+      kind: [Pod, Deployment, StatefulSet, DaemonSet]
+      checks:
+        - path: spec.containers[*].securityContext.runAsNonRoot
+          operator: notEquals
+          value: true
+      remediation: Set securityContext.runAsNonRoot to true and specify a non-zero runAsUser.
+
+    - id: BUILT-IN-003
+      name: Disallow Latest Image Tag
+      description: Using ':latest' can lead to unexpected image versions and reproducibility issues.
+      severity: medium
+      kind: [Pod, Deployment, StatefulSet, DaemonSet]
+      checks:
+        - path: spec.containers[*].image
+          operator: contains
+          value: ":latest"
+      remediation: Specify explicit image tags or digests (e.g., nginx:1.25.3 or nginx@sha256:...).
+
+    - id: BUILT-IN-004
+      name: Restrict Dangerous Capabilities
+      description: Certain capabilities like SYS_ADMIN or NET_RAW can allow container escapes or network attacks.
+      severity: critical
+      kind: [Pod, Deployment, StatefulSet, DaemonSet]
+      checks:
+        - path: spec.containers[*].securityContext.capabilities.add
+          operator: contains
+          value: "SYS_ADMIN"
+        - path: spec.containers[*].securityContext.capabilities.add
+          operator: contains
+          value: "NET_RAW"
+      remediation: Remove dangerous capabilities from securityContext.capabilities.add. Drop all by default and add only necessary ones.
+
+    - id: BUILT-IN-005
+      name: Require Resource Limits
+      description: Missing CPU/memory limits can lead to resource exhaustion and DoS attacks.
+      severity: high
+      kind: [Pod, Deployment, StatefulSet, DaemonSet]
+      checks:
+        - path: spec.containers[*].resources.limits
+          operator: notExists
+          value: null
+      remediation: "Define resources.limits for CPU and memory in each container (e.g., cpu: 500m, memory: 512Mi)."
+  
+  custom-rules.yaml: |
+    - id: CUSTOM-001
+      name: Detect Exposed SSH Ports
+      description: Container exposes SSH port 22 which creates an attack surface
+      severity: high
+      kind: [Pod, Deployment]
+      checks:
+        - path: spec.containers.ports.containerPort
+          operator: equals
+          value: 22
+      remediation: Remove SSH port exposure. Use kubectl exec or alternative secure access methods
+
+    - id: CUSTOM-002
+      name: Disallow Latest Image Tag
+      description: Using 'latest' tag can lead to unpredictable deployments
+      severity: medium
+      kind: [Pod, Deployment]
+      checks:
+        - path: spec.containers.image
+          operator: contains
+          value: ":latest"
+      remediation: Use specific image tags (e.g., nginx:1.21.6) for reproducible deployments
+
+    - id: CUSTOM-003
+      name: Require Network Policies
+      description: Deployments should have associated network policies for traffic control
+      severity: medium
+      kind: [Deployment]
+      checks:
+        - path: metadata.labels.network-policy
+          operator: notExists
+          value: null
+      remediation: "Create a NetworkPolicy resource and label deployment with 'network-policy: enforced'"
+
+    - id: CUSTOM-004
+      name: Detect Dangerous Capabilities
+      description: Container has dangerous Linux capabilities enabled
+      severity: critical
+      kind: [Pod, Deployment]
+      checks:
+        - path: spec.containers.securityContext.capabilities.add
+          operator: contains
+          value: "SYS_ADMIN"
+      remediation: Remove SYS_ADMIN and other dangerous capabilities. Use minimal capability sets
+
+    - id: CUSTOM-005
+      name: Require Pod Security Standards
+      description: Namespace should enforce pod security standards
+      severity: high
+      kind: [Namespace]
+      checks:
+        - path: metadata.labels.pod-security.kubernetes.io/enforce
+          operator: notExists
+          value: null
+      remediation: "Add label to namespace with 'pod-security.kubernetes.io/enforce: restricted' to enforce Pod Security Standards"
 
 ---
 # DaemonSet for KubeSentinel Runtime Monitoring
@@ -153,7 +322,9 @@ spec:
         app: kubesentinel
         version: v1
       annotations:
-        prometheus.io/scrape: "false"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: kubesentinel
       hostNetwork: false
@@ -192,17 +363,19 @@ spec:
 
       containers:
         - name: kubesentinel
-          image: curlimages/curl:latest  # Replace with actual kubesentinel image
+          image: kubesentinel:latest
           imagePullPolicy: IfNotPresent
           
           command:
-            - /bin/sh
-            - -c
-            - |
-              # This is a placeholder - replace with actual kubesentinel binary
-              # kubesentinel monitor --config=/etc/kubesentinel/config.yaml
-              echo "KubeSentinel monitoring daemon started"
-              tail -f /dev/null
+            - /app/kubesentinel
+          args:
+            - monitor
+            - --config=/etc/kubesentinel/config.yaml
+          
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
           
           env:
             - name: NODE_NAME
@@ -255,7 +428,11 @@ spec:
               mountPath: /run/falco
               readOnly: true
             - name: config
-              mountPath: /etc/kubesentinel
+              mountPath: /etc/kubesentinel/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: rules
+              mountPath: /etc/kubesentinel/rules
               readOnly: true
             - name: data
               mountPath: /data
@@ -293,16 +470,30 @@ spec:
             path: /run/falco
             type: DirectoryOrCreate
         
-        # ConfigMap with configuration
+        # ConfigMap — only config.yaml
         - name: config
           configMap:
             name: kubesentinel-config
             defaultMode: 0444
+            items:
+              - key: config.yaml
+                path: config.yaml
         
-        # Persistent data volume for forensics and reports
+        # Rules directory — mount rule files from ConfigMap
+        - name: rules
+          configMap:
+            name: kubesentinel-config
+            defaultMode: 0444
+            items:
+              - key: build-in-rules.yaml
+                path: build-in-rules.yaml
+              - key: custom-rules.yaml
+                path: custom-rules.yaml
+        
+        # Persistent data volume for forensics and reports (survives pod restarts)
         - name: data
-          emptyDir:
-            sizeLimit: 2Gi
+          persistentVolumeClaim:
+            claimName: kubesentinel-data-pvc
         
         # Temporary files
         - name: tmp
@@ -313,7 +504,101 @@ spec:
           emptyDir: {}
 
 ---
-# Service for the AI module (optional, if deploying AI module in K8s)
+# Deployment for the AI/ML module
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesentinel-ai
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-ai
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: kubesentinel-ai
+  template:
+    metadata:
+      labels:
+        app: kubesentinel-ai
+        version: v1
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: kubesentinel
+      
+      containers:
+        - name: ai-service
+          image: kubesentinel-ai:latest
+          imagePullPolicy: IfNotPresent
+          
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kubesentinel-secrets
+                  key: gemini-api-key
+                  optional: true
+            - name: ENRICH_WITH_GEMINI
+              value: "false"
+          
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          
+          volumeMounts:
+            - name: models
+              mountPath: /app/models
+            - name: forensics
+              mountPath: /app/forensics
+      
+      volumes:
+        - name: models
+          emptyDir:
+            sizeLimit: 500Mi
+        - name: forensics
+          emptyDir:
+            sizeLimit: 1Gi
+
+---
+# Service for the AI module
 apiVersion: v1
 kind: Service
 metadata:
@@ -333,10 +618,26 @@ spec:
     app: kubesentinel-ai
 
 ---
-# Namespace
+# Service for Prometheus metrics from KubeSentinel DaemonSet
 apiVersion: v1
-kind: Namespace
+kind: Service
 metadata:
-  name: kubesentinel
+  name: kubesentinel-metrics
+  namespace: kubesentinel
   labels:
+    app: kubesentinel
+    component: metrics
+    version: v1
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
     app: kubesentinel

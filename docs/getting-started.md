@@ -102,6 +102,54 @@ Health check:
 curl http://localhost:5000/health
 ```
 
+## 6.5) Run with Docker Compose (Optional)
+
+For local testing with both KubeSentinel and AI service in containers:
+
+```bash
+docker-compose build
+docker-compose up -d
+```
+
+Verify services are healthy:
+
+```bash
+docker-compose ps
+
+# Should show:
+# kubesentinel     Up (healthy)
+# ai-service       Up (healthy)
+```
+
+View logs:
+
+```bash
+docker-compose logs -f kubesentinel
+docker-compose logs -f ai-service
+```
+
+**Important**: Docker Compose requires Falco to be installed on the host. Falco must be already running when you start the containers, otherwise the kubesentinel service will receive no events.
+
+Install Falco on the host (Linux only):
+
+```bash
+# Via package manager (Ubuntu/Debian)
+sudo apt-get install -y falco
+sudo systemctl start falco
+
+# Or via Docker
+docker run --rm -d --privileged \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /run/falco:/run/falco \
+  falcosecurity/falco
+```
+
+Stop Docker Compose:
+
+```bash
+docker-compose down
+```
+
 ## 7) Runtime Monitoring (Requires Falco)
 
 ```bash
@@ -138,6 +186,20 @@ Use direct commands (`go build`, `go test`, `python -m pip ...`) from this guide
 ### `falco.sock` not found
 
 Falco is not running or socket path differs from config. Start Falco and verify your runtime socket path.
+
+**Note**: KubeSentinel expects Falco at `/run/falco/falco.sock` (not `/var/run/falco`). Verify Falco is writing to the correct location:
+
+```bash
+ls -la /run/falco/
+```
+
+If Falco is installed at a different socket path, update `config/config.yaml`:
+
+```yaml
+runtime:
+  falco:
+    socket_path: "unix:///your/custom/path/falco.sock"  # adjust as needed
+```
 
 ### Python dependencies fail to install
 

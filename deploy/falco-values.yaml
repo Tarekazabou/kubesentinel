@@ -1,0 +1,132 @@
+# Falco Helm Chart Values for KubeSentinel
+# This configuration installs Falco on all cluster nodes to provide runtime security events
+# for KubeSentinel monitoring.
+
+# DaemonSet configuration — runs Falco on every node
+daemonset:
+  enabled: true
+  
+  # Tolerate all taints to ensure Falco runs on control-plane and worker nodes
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
+  # Run on all Linux nodes
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # Service account and RBAC
+  serviceAccount:
+    create: true
+    name: falco
+  
+  # Pod security context — Falco needs root and host access
+  podSecurityContext:
+    runAsUser: 0
+    fsGroup: 0
+  
+  # Container security context
+  securityContext:
+    privileged: true
+    allowPrivilegeEscalation: true
+    readOnlyRootFilesystem: false
+    runAsUser: 0
+    runAsNonRoot: false
+    capabilities:
+      add:
+        - SYS_PTRACE
+        - SYS_ADMIN
+        - NET_ADMIN
+      drop:
+        - ALL
+
+  # Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Falco configuration
+falco:
+  # Enable JSON output for easier parsing
+  json_output: true
+  
+  # Grpc output for KubeSentinel integration
+  grpc:
+    enabled: true
+    listen_port: 5060
+    threadiness: 0
+  
+  # File drop paths to monitor
+  file_output:
+    enabled: false
+  
+  # Stdout output (for logging/debugging)
+  stdout_output:
+    enabled: false
+  
+  # Buffering options
+  outputs:
+    rate: 0
+    max_burst: 1000
+
+# Image configuration
+image:
+  repository: falcosecurity/falco
+  tag: 0.37.1
+  pullPolicy: IfNotPresent
+
+# Container socket — mounted by KubeSentinel
+driver:
+  kind: modern_ebpf
+
+# Mount container runtime socket
+docker:
+  enabled: true
+  sock: /var/run/docker.sock
+
+containerd:
+  enabled: true
+  sock: /run/containerd/containerd.sock
+
+crio:
+  enabled: true
+  sock: /var/run/crio/crio.sock
+
+# Mount the Falco socket for host communication
+falco:
+  grpcOutput:
+    enabled: true
+
+# Host mounts
+mounts:
+  - name: docker-sock
+    path: /var/run/docker.sock
+  - name: containerd-sock
+    path: /run/containerd/containerd.sock
+  - name: crio-sock
+    path: /var/run/crio/crio.sock
+  - name: sys
+    path: /sys
+  - name: debugfs
+    path: /sys/kernel/debug
+  - name: root
+    path: /
+
+# Rules enabled by default
+ebpf:
+  enabled: true
+  hostNetwork: true
+
+# Prioritized system events for security
+rulesFile: /etc/falco/rules.yaml
+
+# Alert on suspicious syscalls and behaviors
+alerts:
+  enabled: true
+  syslogEnabled: false
