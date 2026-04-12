@@ -60,7 +60,7 @@
     - path: spec.containers[*].resources.limits
       operator: notExists
       value: null
-  remediation: Define resources.limits for CPU and memory in each container (e.g., cpu: 500m, memory: 512Mi).
+  remediation: "Define resources.limits for CPU and memory in each container (e.g., cpu: 500m, memory: 512Mi)."
 
 # ==================== NEW PRODUCTION RULES (6-17) ====================
 
@@ -73,7 +73,7 @@
     - path: spec.hostNetwork
       operator: equals
       value: true
-  remediation: Set spec.hostNetwork: false.
+  remediation: "Set spec.hostNetwork: false."
 
 - id: BUILT-IN-007
   name: Disallow Host PID
@@ -84,7 +84,7 @@
     - path: spec.hostPID
       operator: equals
       value: true
-  remediation: Set spec.hostPID: false.
+  remediation: "Set spec.hostPID: false."
 
 - id: BUILT-IN-008
   name: Disallow Host IPC
@@ -95,7 +95,7 @@
     - path: spec.hostIPC
       operator: equals
       value: true
-  remediation: Set spec.hostIPC: false.
+  remediation: "Set spec.hostIPC: false."
 
 - id: BUILT-IN-009
   name: Disallow Privilege Escalation
@@ -106,7 +106,7 @@
     - path: spec.containers[*].securityContext.allowPrivilegeEscalation
       operator: equals
       value: true
-  remediation: Set allowPrivilegeEscalation: false in container securityContext.
+  remediation: "Set allowPrivilegeEscalation: false in container securityContext."
 
 - id: BUILT-IN-010
   name: Require Read-Only Root Filesystem
@@ -117,7 +117,7 @@
     - path: spec.containers[*].securityContext.readOnlyRootFilesystem
       operator: notEquals
       value: true
-  remediation: Set readOnlyRootFilesystem: true.
+  remediation: "Set readOnlyRootFilesystem: true."
 
 - id: BUILT-IN-011
   name: Drop All Capabilities
@@ -128,7 +128,7 @@
     - path: spec.containers[*].securityContext.capabilities.drop
       operator: notExists
       value: null
-  remediation: Add capabilities.drop: ["ALL"] and only add required capabilities (e.g., NET_BIND_SERVICE).
+  remediation: 'Add capabilities.drop: ["ALL"] and only add required capabilities (e.g., NET_BIND_SERVICE).'
 
 - id: BUILT-IN-012
   name: Require Resource Requests
@@ -154,14 +154,14 @@
 
 - id: BUILT-IN-014
   name: Require Image Pull Policy Always
-  description: imagePullPolicy: Always ensures the latest image is pulled and avoids stale cached images.
+  description: "imagePullPolicy: Always ensures the latest image is pulled and avoids stale cached images."
   severity: medium
   kind: [Pod, Deployment, StatefulSet, DaemonSet]
   checks:
     - path: spec.containers[*].imagePullPolicy
       operator: notEquals
       value: Always
-  remediation: Set imagePullPolicy: Always.
+  remediation: "Set imagePullPolicy: Always."
 
 - id: BUILT-IN-015
   name: Disallow Automount Service Account Token
@@ -172,7 +172,7 @@
     - path: spec.automountServiceAccountToken
       operator: equals
       value: true
-  remediation: Set automountServiceAccountToken: false (or use a dedicated ServiceAccount with minimal RBAC).
+  remediation: "Set automountServiceAccountToken: false (or use a dedicated ServiceAccount with minimal RBAC)."
 
 - id: BUILT-IN-016
   name: Restrict RunAsUser (non-root)
@@ -183,7 +183,7 @@
     - path: spec.containers[*].securityContext.runAsUser
       operator: equals
       value: 0
-  remediation: Use runAsNonRoot: true or set runAsUser to a value > 0.
+  remediation: "Use runAsNonRoot: true or set runAsUser to a value > 0."
 
 - id: BUILT-IN-017
   name: Require Container Security Context
@@ -196,7 +196,7 @@
       value: null
   remediation: Add a securityContext block to every container.
 - id: BUILT-IN-018
-  name: Disallow Root User (runAsUser: 0)
+  name: "Disallow Root User (runAsUser: 0)"
   description: Explicitly running as root (UID 0) is strictly prohibited.
   severity: critical
   kind: [Pod, Deployment, StatefulSet, DaemonSet, CronJob]
@@ -204,44 +204,48 @@
     - path: spec.containers[*].securityContext.runAsUser
       operator: equals
       value: 0
-  remediation: Use runAsNonRoot: true or runAsUser > 1000.
+  remediation: "Use runAsNonRoot: true or runAsUser > 1000."
 
 - id: BUILT-IN-019
   name: Require Specific ServiceAccount
   description: Pods should not use the default ServiceAccount.
   severity: high
-  kind: [Pod, Deployment...]
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
   checks:
     - path: spec.serviceAccountName
       operator: equals
       value: default
+  remediation: Specify a dedicated ServiceAccount instead of using the default.
 
 - id: BUILT-IN-020
   name: Disallow HostPath with Sensitive Paths
   description: Mounting /, /etc, /root, /var/run/docker.sock etc. is extremely dangerous.
   severity: critical
-  kind: [Pod...]
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
   checks:
     - path: spec.volumes[*].hostPath.path
       operator: contains
       value: "/"
+  remediation: Avoid hostPath mounts to sensitive directories. Use secrets or configMaps instead.
 
 - id: BUILT-IN-021
   name: Require Seccomp Profile RuntimeDefault
   description: Should use seccomp profile to restrict syscalls.
   severity: high
-  kind: [Pod...]
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
   checks:
     - path: spec.securityContext.seccompProfile.type
       operator: notEquals
       value: RuntimeDefault
+  remediation: "Set securityContext.seccompProfile.type: RuntimeDefault to restrict syscalls."
 
 - id: BUILT-IN-022
   name: Disallow EmptyDir Medium Memory
   description: Using memory-backed emptyDir without limits can cause node DoS.
   severity: medium
-  kind: [Pod...]
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
   checks:
     - path: spec.volumes[*].emptyDir.medium
       operator: equals
       value: Memory
+  remediation: Avoid using Memory medium for emptyDir volumes or ensure proper resource limits are set.
