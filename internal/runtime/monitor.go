@@ -26,6 +26,7 @@ type Monitor struct {
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	stopped   atomic.Bool
+	closeOnce sync.Once
 }
 
 // MonitorConfig holds monitoring configuration
@@ -228,7 +229,7 @@ func (m *Monitor) consumeFromStdin() {
 	}
 
 	fmt.Println("stdin closed → draining remaining events...")
-	close(m.EventChan)
+	m.closeOnce.Do(func() { close(m.EventChan) })
 	m.Processor.Wait()
 	time.Sleep(100 * time.Millisecond)
 	fmt.Println("Monitor shutdown complete.")
@@ -318,7 +319,7 @@ func (m *Monitor) Stop() {
 		return
 	}
 	m.cancel()
-	close(m.EventChan)
+	m.closeOnce.Do(func() { close(m.EventChan) })
 }
 
 func (m *Monitor) Wait() {
