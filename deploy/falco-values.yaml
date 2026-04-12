@@ -56,14 +56,14 @@ falco:
   # Enable JSON output for easier parsing
   json_output: true
   
-  # Grpc output for KubeSentinel integration
+  # gRPC disabled; KubeSentinel monitor-stdin consumes Falco stdout JSON
   grpc:
-    enabled: true
+    enabled: false
     listen_port: 5060
     threadiness: 0
   
   grpc_output:
-    enabled: true
+    enabled: false
   
   # File drop paths to monitor
   file_output:
@@ -71,7 +71,7 @@ falco:
   
   # Stdout output (for logging/debugging)
   stdout_output:
-    enabled: false
+    enabled: true
   
   # Buffering options
   outputs:
