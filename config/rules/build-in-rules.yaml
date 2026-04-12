@@ -128,7 +128,7 @@
     - path: spec.containers[*].securityContext.capabilities.drop
       operator: notExists
       value: null
-  remediation: 'Add capabilities.drop: ["ALL"] and only add required capabilities (e.g., NET_BIND_SERVICE).'
+  remediation: "Add capabilities.drop: [\"ALL\"] and only add required capabilities (e.g., NET_BIND_SERVICE)."
 
 - id: BUILT-IN-012
   name: Require Resource Requests
