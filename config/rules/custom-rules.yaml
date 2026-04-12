@@ -4,21 +4,10 @@
   severity: high
   kind: [Pod, Deployment]
   checks:
-    - path: spec.containers.ports.containerPort
+    - path: spec.containers[*].ports[*].containerPort
       operator: equals
       value: 22
-  remediation: Remove SSH port exposure. Use kubectl exec or alternative secure access methods
-
-- id: CUSTOM-002
-  name: Disallow Latest Image Tag
-  description: Using 'latest' tag can lead to unpredictable deployments
-  severity: medium
-  kind: [Pod, Deployment]
-  checks:
-    - path: spec.containers.image
-      operator: contains
-      value: ":latest"
-  remediation: Use specific image tags (e.g., nginx:1.21.6) for reproducible deployments
+  remediation: Remove SSH port exposure. Use kubectl exec or alternative secure access methods.
 
 - id: CUSTOM-003
   name: Require Network Policies
@@ -29,18 +18,7 @@
     - path: metadata.labels.network-policy
       operator: notExists
       value: null
-  remediation: "Create a NetworkPolicy resource and label deployment with 'network-policy: enforced'"
-
-- id: CUSTOM-004
-  name: Detect Dangerous Capabilities
-  description: Container has dangerous Linux capabilities enabled
-  severity: critical
-  kind: [Pod, Deployment]
-  checks:
-    - path: spec.containers.securityContext.capabilities.add
-      operator: contains
-      value: "SYS_ADMIN"
-  remediation: Remove SYS_ADMIN and other dangerous capabilities. Use minimal capability sets
+  remediation: Create a NetworkPolicy resource and label deployment with 'network-policy: enforced'
 
 - id: CUSTOM-005
   name: Require Pod Security Standards
@@ -51,4 +29,73 @@
     - path: metadata.labels.pod-security.kubernetes.io/enforce
       operator: notExists
       value: null
-  remediation: "Add label to namespace with 'pod-security.kubernetes.io/enforce: restricted' to enforce Pod Security Standards"
+  remediation: Add label to namespace with 'pod-security.kubernetes.io/enforce: restricted'
+
+# ==================== NEW CUSTOM RULES ====================
+
+- id: CUSTOM-006
+  name: Disallow Default Namespace
+  description: Resources should never be deployed in the default namespace in production
+  severity: medium
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: metadata.namespace
+      operator: equals
+      value: default
+  remediation: Use a dedicated namespace with proper RBAC and network policies.
+
+- id: CUSTOM-007
+  name: Require App Labels
+  description: All workloads must have standard app.kubernetes.io/* labels for observability and governance
+  severity: low
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: metadata.labels.app.kubernetes.io/name
+      operator: notExists
+      value: null
+  remediation: Add labels: app.kubernetes.io/name, app.kubernetes.io/component, app.kubernetes.io/version.
+
+- id: CUSTOM-008
+  name: Detect Exposed Database Ports
+  description: Exposing database ports (MySQL, PostgreSQL, MongoDB, Redis) publicly is a major risk
+  severity: high
+  kind: [Pod, Deployment]
+  checks:
+    - path: spec.containers[*].ports[*].containerPort
+      operator: equals
+      value: 3306
+    - path: spec.containers[*].ports[*].containerPort
+      operator: equals
+      value: 5432
+    - path: spec.containers[*].ports[*].containerPort
+      operator: equals
+      value: 27017
+    - path: spec.containers[*].ports[*].containerPort
+      operator: equals
+      value: 6379
+  remediation: Remove database ports from container spec or protect them with NetworkPolicy + Ingress.
+
+- id: CUSTOM-009
+  name: Disallow Insecure Capabilities
+  description: Additional dangerous capabilities beyond built-in checks
+  severity: critical
+  kind: [Pod, Deployment, StatefulSet, DaemonSet]
+  checks:
+    - path: spec.containers[*].securityContext.capabilities.add
+      operator: contains
+      value: "SYS_MODULE"
+    - path: spec.containers[*].securityContext.capabilities.add
+      operator: contains
+      value: "SYS_RAWIO"
+  remediation: Remove these capabilities immediately.
+
+- id: CUSTOM-010
+  name: Require Liveness & Readiness Probes
+  description: Production containers must have health probes for proper orchestration
+  severity: medium
+  kind: [Pod, Deployment, StatefulSet]
+  checks:
+    - path: spec.containers[*].livenessProbe
+      operator: notExists
+      value: null
+  remediation: Add livenessProbe and readinessProbe to every container.
