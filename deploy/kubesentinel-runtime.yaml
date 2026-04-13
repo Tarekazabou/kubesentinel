@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesentinel-runtime
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-runtime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubesentinel-runtime
+  template:
+    metadata:
+      labels:
+        app: kubesentinel-runtime
+    spec:
+      containers:
+        - name: kubesentinel-runtime
+          image: kubesentinel:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/app/kubesentinel", "monitor-webhook", "--port", "8080"]
+          ports:
+            - containerPort: 8080
+              name: webhook
+          volumeMounts:
+            - name: kubesentinel-data
+              mountPath: /data
+      volumes:
+        - name: kubesentinel-data
+          persistentVolumeClaim:
+            claimName: kubesentinel-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubesentinel-runtime
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-runtime
+spec:
+  type: ClusterIP
+  selector:
+    app: kubesentinel-runtime
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
