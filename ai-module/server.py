@@ -426,9 +426,8 @@ def model_info():
         'model_path': detector.model_path
     })
 @app.route('/api/incidents', methods=['GET'])
-@require_train_token
 def get_ai_incidents():
-    """Read incidents from forensics/ and enrich with Gemini where helpful - requires Bearer token authorization"""
+    """Read incidents from forensics/ and enrich with Gemini where helpful"""
     try:
         forensics_dir = Path(__file__).parent.parent / "forensics"
         if not forensics_dir.exists():

@@ -608,11 +608,12 @@ metadata:
     app: kubesentinel-ai
     version: v1
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - name: http
       port: 5000
       targetPort: 5000
+      nodePort: 30500
       protocol: TCP
   selector:
     app: kubesentinel-ai
