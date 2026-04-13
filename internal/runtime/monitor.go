@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"kubesentinel/internal/ai"
@@ -16,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+var ErrEventChannelClosed = errors.New("event channel closed")
 
 // Monitor handles runtime security monitoring *
 type Monitor struct {
@@ -132,17 +135,23 @@ func (m *Monitor) Start() error {
 		fmt.Println("✅ AI service healthy – behavioral anomaly detection enabled")
 	}
 
-	// 2. Add to WaitGroup to track the data consumption goroutine
-	m.wg.Add(1)
-	go func() {
-		defer m.wg.Done()
-		switch m.Config.Source {
-		case "stdin":
+	// 2. Start source-specific event intake.
+	switch m.Config.Source {
+	case "webhook":
+		fmt.Println("Webhook source enabled. Waiting for HTTP /events payloads...")
+	case "stdin":
+		m.wg.Add(1)
+		go func() {
+			defer m.wg.Done()
 			m.consumeFromStdin()
-		default:
+		}()
+	default:
+		m.wg.Add(1)
+		go func() {
+			defer m.wg.Done()
 			m.consumeFromSocket()
-		}
-	}()
+		}()
+	}
 
 	go m.collectMetrics()
 
@@ -196,7 +205,7 @@ func (m *Monitor) consumeFromStdin() {
 	decoder := json.NewDecoder(os.Stdin)
 
 	for {
-		var rawEvent SecurityEvent
+		var rawEvent json.RawMessage
 		if err := decoder.Decode(&rawEvent); err != nil {
 			if err == io.EOF {
 				break
@@ -205,27 +214,12 @@ func (m *Monitor) consumeFromStdin() {
 			continue
 		}
 
-		// Parse k8s fields early (critical for filtering)
-		event, _ := m.parseEventForStdin(rawEvent)
-
-		// --- MODIFICATION START ---
-		// 1. Check if the event should be processed BEFORE logging.
-		// This respects your --namespace and --pod flags.
-		if !m.shouldProcessEvent(event) {
-			continue
+		if _, err := m.ProcessJSONEvent(rawEvent); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, ErrEventChannelClosed) {
+				break
+			}
+			fmt.Fprintf(os.Stderr, "Event ingestion error (skipped): %v\n", err)
 		}
-
-		procName, _ := event.Fields["proc.name"].(string)
-
-		// 2. Only log if there is actual content to show (removes the "rule= proc=" lines)
-		if event.Rule != "" && procName != "" {
-			fmt.Printf("[EVENT] Received rule=%s proc=%s ns=%s pod=%s\n",
-				event.Rule, procName, event.Container.Namespace, event.Container.PodName)
-		}
-		// --- MODIFICATION END ---
-
-		// Only relevant events reach the pipeline
-		m.EventChan <- event
 	}
 
 	fmt.Println("stdin closed → draining remaining events...")
@@ -235,17 +229,25 @@ func (m *Monitor) consumeFromStdin() {
 	fmt.Println("Monitor shutdown complete.")
 }
 
-// Small helper to ensure parsing for stdin (in case decoder.Decode doesn't populate Container)
-func (m *Monitor) parseEventForStdin(event SecurityEvent) (SecurityEvent, error) {
-	if event.Fields != nil {
-		if ns, ok := event.Fields["k8s.ns.name"].(string); ok {
-			event.Container.Namespace = ns
-		}
-		if pod, ok := event.Fields["k8s.pod.name"].(string); ok {
-			event.Container.PodName = pod
-		}
+// ProcessJSONEvent pushes a raw Falco JSON payload through the same parse/filter/enqueue pipeline.
+func (m *Monitor) ProcessJSONEvent(data []byte) (bool, error) {
+	event, err := m.parseEvent(data)
+	if err != nil {
+		return false, err
 	}
-	return event, nil
+
+	if !m.shouldProcessEvent(event) {
+		return false, nil
+	}
+
+	select {
+	case <-m.ctx.Done():
+		return false, context.Canceled
+	case m.EventChan <- event:
+		return true, nil
+	default:
+		return false, fmt.Errorf("event buffer full")
+	}
 }
 
 func (m *Monitor) parseEvent(data []byte) (SecurityEvent, error) {
