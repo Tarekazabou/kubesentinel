@@ -18,7 +18,7 @@
     - path: metadata.labels.network-policy
       operator: notExists
       value: null
-  remediation: Create a NetworkPolicy resource and label deployment with 'network-policy: enforced'
+  remediation: Create a NetworkPolicy resource and label deployment with network-policy=enforced
 
 - id: CUSTOM-005
   name: Require Pod Security Standards
@@ -29,7 +29,7 @@
     - path: metadata.labels.pod-security.kubernetes.io/enforce
       operator: notExists
       value: null
-  remediation: Add label to namespace with 'pod-security.kubernetes.io/enforce: restricted'
+  remediation: Add label pod-security.kubernetes.io/enforce=restricted to namespace
 
 # ==================== NEW CUSTOM RULES ====================
 
@@ -53,7 +53,7 @@
     - path: metadata.labels.app.kubernetes.io/name
       operator: notExists
       value: null
-  remediation: Add labels: app.kubernetes.io/name, app.kubernetes.io/component, app.kubernetes.io/version.
+  remediation: Add labels app.kubernetes.io/name, app.kubernetes.io/component, app.kubernetes.io/version
 
 - id: CUSTOM-008
   name: Detect Exposed Database Ports
