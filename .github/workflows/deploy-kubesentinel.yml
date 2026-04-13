@@ -38,9 +38,9 @@ jobs:
 
       - name: Build KubeSentinel AI Image
         run: |
-          echo "Building KubeSentinel AI Docker image..."
-          # Build using the specific dockerfile.ai
-          docker build -f dockerfile.ai -t kubesentinel-ai:latest .
+          echo "Building KubeSentinel AI Docker image (no cache to ensure fresh dependencies)..."
+          # Build using the specific dockerfile.ai with --no-cache to avoid stale layers
+          docker build --no-cache -f dockerfile.ai -t kubesentinel-ai:latest .
         shell: bash
 
       - name: Load image into Minikube
@@ -110,8 +110,8 @@ jobs:
             echo "=== Pod Events ==="
             kubectl describe pod -n kubesentinel -l app=kubesentinel-ai | grep -A 20 "Events:"
             echo ""
-            echo "=== Pod Logs ==="
-            kubectl logs -n kubesentinel -l app=kubesentinel-ai --tail=50 || echo "No logs available (pod may not have started)"
+            echo "=== Pod Logs (last 100 lines) ==="
+            kubectl logs -n kubesentinel -l app=kubesentinel-ai --tail=100 --timestamps=true 2>/dev/null || echo "No logs available (pod may not have started)"
             echo ""
             echo "=== Deployment Status ==="
             kubectl describe deployment kubesentinel-ai -n kubesentinel | grep -A 10 "Replicas:"
