@@ -14,6 +14,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v3
 
+      - name: Clean up and Start Minikube
+        run: |
+          echo "Freeing up disk space..."
+          docker system prune -af --volumes
+          
+          echo "Removing old broken cluster..."
+          minikube delete || true
+          
+          echo "Starting fresh Minikube cluster with safe resource allocation..."
+          minikube start --memory=2200 --cpus=2 --force
+          
+          echo "Waiting for Minikube control plane to be ready..."
+          kubectl wait --for=condition=Ready node/minikube --timeout=90s
+          echo "✓ Minikube is ready!"
+        shell: bash
+
       - name: Build KubeSentinel AI Image
         run: |
           echo "Building KubeSentinel AI Docker image..."
