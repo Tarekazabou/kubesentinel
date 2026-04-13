@@ -1,0 +1,70 @@
+name: Deploy KubeSentinel to VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Allows you to run it manually from the Actions tab
+
+jobs:
+  deploy-kubesentinel:
+    runs-on: self-hosted # Uses your Ubuntu VM
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Build KubeSentinel AI Image
+        run: |
+          echo "Building KubeSentinel AI Docker image..."
+          # Build using the specific dockerfile.ai
+          docker build -f dockerfile.ai -t kubesentinel-ai:latest .
+        shell: bash
+
+      - name: Load image into Minikube
+        run: |
+          echo "Loading image into Minikube..."
+          # Pushes the newly built image directly into Minikube's registry
+          minikube image load kubesentinel-ai:latest
+        shell: bash
+
+      - name: Ensure Namespace and Secrets exist
+        run: |
+          # Create namespace if it doesn't exist
+          kubectl create namespace kubesentinel --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create a dummy secret if it doesn't exist so the pod doesn't crash 
+          # (You can replace this with your real Gemini key later)
+          kubectl create secret generic kubesentinel-secrets \
+            --from-literal=gemini-api-key="dummy-key" \
+            --from-literal=training-api-token="dummy-token" \
+            -n kubesentinel --dry-run=client -o yaml | kubectl apply -f -
+        shell: bash
+
+      - name: Deploy Kubernetes Manifests
+        run: |
+          echo "Applying DaemonSet, Deployments, and Services..."
+          kubectl apply -f deploy/kubesentinel-daemonset.yaml
+          
+          # Patch the service to NodePort 30500 if the IDE prompt didn't catch it
+          kubectl patch svc kubesentinel-ai -n kubesentinel -p '{"spec": {"type": "NodePort", "ports": [{"port": 5000, "nodePort": 30500}]}}'
+        shell: bash
+
+      - name: Force Rollout to Pick Up New Image
+        run: |
+          echo "Restarting AI deployment to use the newly built latest image..."
+          kubectl rollout restart deployment kubesentinel-ai -n kubesentinel
+          kubectl rollout status deployment/kubesentinel-ai -n kubesentinel --timeout=3m
+        shell: bash
+
+      - name: Display Dashboard Access Info
+        if: success()
+        run: |
+          VM_IP=$(hostname -I | awk '{print $1}')
+          echo "============================================================"
+          echo "      🚀 KubeSentinel AI Dashboard is LIVE!"
+          echo "============================================================"
+          echo "Access the dashboard from your tablet or browser at:"
+          echo "👉 http://$VM_IP:30500"
+          echo "============================================================"
+        shell: bash
