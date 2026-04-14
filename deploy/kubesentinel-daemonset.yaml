@@ -383,7 +383,7 @@ spec:
             - /bin/sh
             - -c
           args:
-            - "cat /run/falco/falco.pipe | /app/kubesentinel monitor-stdin --config=/etc/kubesentinel/config.yaml"
+            - "cat /run/falco/falco.pipe | grep -E '^\\{' | /app/kubesentinel monitor-stdin --config=/etc/kubesentinel/config.yaml || true"
           
           ports:
             - name: metrics
