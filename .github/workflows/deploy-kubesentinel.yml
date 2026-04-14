@@ -16,14 +16,11 @@ jobs:
 
       - name: Clean up and Start Minikube
         run: |
-          echo "Cleaning up KubeSentinel-specific Docker resources..."
-          # Remove only KubeSentinel images/containers to avoid affecting other projects
+          echo "Cleaning up KubeSentinel namespace Docker images..."
+          # Remove only images used by kubesentinel namespace
           docker rmi kubesentinel-ai:latest 2>/dev/null || true
-          docker container prune -f --filter "label!=keep-alive" 2>/dev/null || true
-          
-          echo "Freeing up disk space (lightweight cleanup)..."
-          # Only prune dangling images, not all unused ones (safer for shared runners)
-          docker image prune -f
+          docker rmi kubesentinel:latest 2>/dev/null || true
+          docker rmi kubesentinel-runtime:latest 2>/dev/null || true
           
           echo "Removing old broken cluster..."
           minikube delete || true
@@ -34,6 +31,8 @@ jobs:
           echo "Waiting for Minikube control plane to be ready..."
           kubectl wait --for=condition=Ready node/minikube --timeout=90s
           echo "✓ Minikube is ready!"
+          echo "here is the space on the vm   after starting minikube"
+          df -h
         shell: bash
 
       - name: Build KubeSentinel AI Image
@@ -128,5 +127,7 @@ jobs:
           echo "============================================================"
           echo "Access the dashboard from your tablet or browser at:"
           echo "👉 http://$VM_IP:30500"
+          echo "here are the pods that lives in the vm"
+          kubectl get pods -A
           echo "============================================================"
         shell: bash

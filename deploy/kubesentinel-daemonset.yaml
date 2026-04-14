@@ -588,14 +588,15 @@ spec:
               mountPath: /app/models
             - name: forensics
               mountPath: /app/forensics
+              subPath: forensics
       
       volumes:
         - name: models
           emptyDir:
             sizeLimit: 500Mi
         - name: forensics
-          emptyDir:
-            sizeLimit: 1Gi
+          persistentVolumeClaim:
+            claimName: kubesentinel-data-pvc
 
 ---
 # Service for the AI module
