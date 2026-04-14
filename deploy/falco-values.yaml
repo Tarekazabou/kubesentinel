@@ -56,6 +56,9 @@ falco:
   # Enable JSON output for easier parsing
   json_output: true
   
+  # Set log level to WARNING to avoid verbose startup messages in the file_output
+  log_level: warning
+  
   # gRPC disabled; KubeSentinel monitor-stdin consumes Falco stdout JSON
   grpc:
     enabled: false
@@ -65,13 +68,13 @@ falco:
   grpc_output:
     enabled: false
   
-  # File output — write to named pipe for KubeSentinel
+  # File output — write to named pipe for KubeSentinel (JSON ONLY)
   file_output:
     enabled: true
     filename: /run/falco/falco.pipe
     keep_alive: true
   
-  # Stdout output (for logging/debugging)
+  # Disable stdout output to prevent mixed logs
   stdout_output:
     enabled: false
   

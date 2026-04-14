@@ -101,6 +101,7 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 		Compression:   config.VaultCompression,
 	})
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to initialize forensic vault: %w", err)
 	}
 
@@ -202,19 +203,14 @@ func (m *Monitor) consumeFromSocket() {
 func (m *Monitor) consumeFromStdin() {
 	fmt.Println("Reading Falco JSON events from stdin... (pipe kubectl logs -f)")
 
-	decoder := json.NewDecoder(os.Stdin)
-
-	for {
-		var rawEvent json.RawMessage
-		if err := decoder.Decode(&rawEvent); err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Fprintf(os.Stderr, "JSON decode error (skipped): %v\n", err)
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := sanitizeStdinJSONLine(scanner.Text())
+		if line == "" {
 			continue
 		}
 
-		if _, err := m.ProcessJSONEvent(rawEvent); err != nil {
+		if _, err := m.ProcessJSONEvent([]byte(line)); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, ErrEventChannelClosed) {
 				break
 			}
@@ -222,11 +218,45 @@ func (m *Monitor) consumeFromStdin() {
 		}
 	}
 
+	if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) {
+		fmt.Fprintf(os.Stderr, "stdin scanner error: %v\n", err)
+	}
+
 	fmt.Println("stdin closed → draining remaining events...")
 	m.closeOnce.Do(func() { close(m.EventChan) })
 	m.Processor.Wait()
 	time.Sleep(100 * time.Millisecond)
 	fmt.Println("Monitor shutdown complete.")
+}
+
+// sanitizeStdinJSONLine extracts one JSON object from a mixed log line.
+// This supports kubectl logs streams that may include prefixes, timestamps, or ANSI/noise.
+func sanitizeStdinJSONLine(raw string) string {
+	line := strings.TrimSpace(raw)
+	if line == "" {
+		return ""
+	}
+
+	// Strip UTF-8 BOM when present.
+	line = strings.TrimPrefix(line, "\uFEFF")
+
+	start := strings.Index(line, "{")
+	if start < 0 {
+		return ""
+	}
+	line = line[start:]
+
+	end := strings.LastIndex(line, "}")
+	if end < 0 {
+		return ""
+	}
+	line = line[:end+1]
+
+	if !json.Valid([]byte(line)) {
+		return ""
+	}
+
+	return line
 }
 
 // ProcessJSONEvent pushes a raw Falco JSON payload through the same parse/filter/enqueue pipeline.

@@ -1,133 +1,133 @@
-name: Deploy KubeSentinel to VM
+# name: Deploy KubeSentinel to VM
+#
+# on:
+#   push:
+#     branches:
+#       - main
+#   workflow_dispatch: # Allows you to run it manually from the Actions tab
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch: # Allows you to run it manually from the Actions tab
-
-jobs:
-  deploy-kubesentinel:
-    runs-on: self-hosted # Uses your Ubuntu VM
+# jobs:
+#   deploy-kubesentinel:
+#     runs-on: self-hosted # Uses your Ubuntu VM
     
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
+#     steps:
+#       - name: Check out repository
+#         uses: actions/checkout@v3
 
-      - name: Clean up and Start Minikube
-        run: |
-          echo "Cleaning up KubeSentinel namespace Docker images..."
-          # Remove only images used by kubesentinel namespace
-          docker rmi kubesentinel-ai:latest 2>/dev/null || true
-          docker rmi kubesentinel:latest 2>/dev/null || true
-          docker rmi kubesentinel-runtime:latest 2>/dev/null || true
+#       - name: Clean up and Start Minikube
+#         run: |
+#           echo "Cleaning up KubeSentinel namespace Docker images..."
+#           # Remove only images used by kubesentinel namespace
+#           docker rmi kubesentinel-ai:latest 2>/dev/null || true
+#           docker rmi kubesentinel:latest 2>/dev/null || true
+#           docker rmi kubesentinel-runtime:latest 2>/dev/null || true
           
-          echo "Removing old broken cluster..."
-          minikube delete || true
+#           echo "Removing old broken cluster..."
+#           minikube delete || true
           
-          echo "Starting fresh Minikube cluster with safe resource allocation..."
-          minikube start --memory=2200 --cpus=2 --force
+#           echo "Starting fresh Minikube cluster with safe resource allocation..."
+#           minikube start --memory=2200 --cpus=2 --force
           
-          echo "Waiting for Minikube control plane to be ready..."
-          kubectl wait --for=condition=Ready node/minikube --timeout=90s
-          echo "✓ Minikube is ready!"
-          echo "here is the space on the vm   after starting minikube"
-          df -h
-        shell: bash
+#           echo "Waiting for Minikube control plane to be ready..."
+#           kubectl wait --for=condition=Ready node/minikube --timeout=90s
+#           echo "✓ Minikube is ready!"
+#           echo "here is the space on the vm   after starting minikube"
+#           df -h
+#         shell: bash
 
-      - name: Build KubeSentinel AI Image
-        run: |
-          echo "Building KubeSentinel AI Docker image (no cache to ensure fresh dependencies)..."
-          # Build using the specific dockerfile.ai with --no-cache to avoid stale layers
-          docker build --no-cache -f dockerfile.ai -t kubesentinel-ai:latest .
-        shell: bash
+#       - name: Build KubeSentinel AI Image
+#         run: |
+#           echo "Building KubeSentinel AI Docker image (no cache to ensure fresh dependencies)..."
+#           # Build using the specific dockerfile.ai with --no-cache to avoid stale layers
+#           docker build --no-cache -f dockerfile.ai -t kubesentinel-ai:latest .
+#         shell: bash
 
-      - name: Load image into Minikube
-        run: |
-          echo "Loading image into Minikube..."
-          # Pushes the newly built image directly into Minikube's registry
-          minikube image load kubesentinel-ai:latest
+#       - name: Load image into Minikube
+#         run: |
+#           echo "Loading image into Minikube..."
+#           # Pushes the newly built image directly into Minikube's registry
+#           minikube image load kubesentinel-ai:latest
           
-          echo "Verifying image is available in Minikube..."
-          if minikube image ls | grep -q kubesentinel-ai:latest; then
-            echo "✓ Image successfully loaded into Minikube"
-          else
-            echo "❌ Image failed to load! Checking what's in Minikube..."
-            minikube image ls | grep kubesentinel
-            exit 1
-          fi
-        shell: bash
+#           echo "Verifying image is available in Minikube..."
+#           if minikube image ls | grep -q kubesentinel-ai:latest; then
+#             echo "✓ Image successfully loaded into Minikube"
+#           else
+#             echo "❌ Image failed to load! Checking what's in Minikube..."
+#             minikube image ls | grep kubesentinel
+#             exit 1
+#           fi
+#         shell: bash
 
-      - name: Ensure Namespace and Secrets exist
-        run: |
-          # Create namespace if it doesn't exist
-          kubectl create namespace kubesentinel --dry-run=client -o yaml | kubectl apply -f -
+#       - name: Ensure Namespace and Secrets exist
+#         run: |
+#           # Create namespace if it doesn't exist
+#           kubectl create namespace kubesentinel --dry-run=client -o yaml | kubectl apply -f -
           
-          # Create a dummy secret if it doesn't exist so the pod doesn't crash 
-          # (You can replace this with your real Gemini key later)
-          kubectl create secret generic kubesentinel-secrets \
-            --from-literal=gemini-api-key="dummy-key" \
-            --from-literal=training-api-token="dummy-token" \
-            -n kubesentinel --dry-run=client -o yaml | kubectl apply -f -
-        shell: bash
+#           # Create a dummy secret if it doesn't exist so the pod doesn't crash 
+#           # (You can replace this with your real Gemini key later)
+#           kubectl create secret generic kubesentinel-secrets \
+#             --from-literal=gemini-api-key="dummy-key" \
+#             --from-literal=training-api-token="dummy-token" \
+#             -n kubesentinel --dry-run=client -o yaml | kubectl apply -f -
+#         shell: bash
 
-      - name: Deploy Kubernetes Manifests
-        run: |
-          echo "Applying DaemonSet, Deployments, and Services..."
-          kubectl apply -f deploy/kubesentinel-daemonset.yaml
+#       - name: Deploy Kubernetes Manifests
+#         run: |
+#           echo "Applying DaemonSet, Deployments, and Services..."
+#           kubectl apply -f deploy/kubesentinel-daemonset.yaml
           
-          # Patch the service to NodePort 30500 if the IDE prompt didn't catch it
-          kubectl patch svc kubesentinel-ai -n kubesentinel -p '{"spec": {"type": "NodePort", "ports": [{"port": 5000, "nodePort": 30500}]}}'
+#           # Patch the service to NodePort 30500 if the IDE prompt didn't catch it
+#           kubectl patch svc kubesentinel-ai -n kubesentinel -p '{"spec": {"type": "NodePort", "ports": [{"port": 5000, "nodePort": 30500}]}}'
           
-          # Ensure imagePullPolicy is set to Never so k8s uses local Minikube image
-          echo "Patching image pull policy to use local Minikube image..."
-          kubectl patch deployment kubesentinel-ai -n kubesentinel --type='json' \
-            -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"IfNotPresent"}]' || \
-            kubectl set image deployment/kubesentinel-ai -n kubesentinel kubesentinel-ai=kubesentinel-ai:latest --record || true
-        shell: bash
+#           # Ensure imagePullPolicy is set to Never so k8s uses local Minikube image
+#           echo "Patching image pull policy to use local Minikube image..."
+#           kubectl patch deployment kubesentinel-ai -n kubesentinel --type='json' \
+#             -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/imagePullPolicy", "value":"IfNotPresent"}]' || \
+#             kubectl set image deployment/kubesentinel-ai -n kubesentinel kubesentinel-ai=kubesentinel-ai:latest --record || true
+#         shell: bash
 
-      - name: Force Rollout to Pick Up New Image
-        run: |
-          echo "Verifying image is loaded in Minikube..."
-          minikube image ls | grep kubesentinel-ai:latest || {
-            echo "❌ Image not found in Minikube! Attempting to load..."
-            minikube image load kubesentinel-ai:latest
-          }
+#       - name: Force Rollout to Pick Up New Image
+#         run: |
+#           echo "Verifying image is loaded in Minikube..."
+#           minikube image ls | grep kubesentinel-ai:latest || {
+#             echo "❌ Image not found in Minikube! Attempting to load..."
+#             minikube image load kubesentinel-ai:latest
+#           }
           
-          echo "Restarting AI deployment to use the newly built latest image..."
-          kubectl rollout restart deployment kubesentinel-ai -n kubesentinel
+#           echo "Restarting AI deployment to use the newly built latest image..."
+#           kubectl rollout restart deployment kubesentinel-ai -n kubesentinel
           
-          echo "Waiting for rollout to complete (timeout: 5 minutes)..."
-          if kubectl rollout status deployment/kubesentinel-ai -n kubesentinel --timeout=5m; then
-            echo "✓ Rollout succeeded!"
-          else
-            echo "❌ Rollout failed or timed out. Collecting diagnostics..."
-            echo ""
-            echo "=== Pod Status ==="
-            kubectl get pods -n kubesentinel -l app=kubesentinel-ai
-            echo ""
-            echo "=== Pod Events ==="
-            kubectl describe pod -n kubesentinel -l app=kubesentinel-ai | grep -A 20 "Events:"
-            echo ""
-            echo "=== Pod Logs (last 100 lines) ==="
-            kubectl logs -n kubesentinel -l app=kubesentinel-ai --tail=100 --timestamps=true 2>/dev/null || echo "No logs available (pod may not have started)"
-            echo ""
-            echo "=== Deployment Status ==="
-            kubectl describe deployment kubesentinel-ai -n kubesentinel | grep -A 10 "Replicas:"
-            exit 1
-          fi
-        shell: bash
+#           echo "Waiting for rollout to complete (timeout: 5 minutes)..."
+#           if kubectl rollout status deployment/kubesentinel-ai -n kubesentinel --timeout=5m; then
+#             echo "✓ Rollout succeeded!"
+#           else
+#             echo "❌ Rollout failed or timed out. Collecting diagnostics..."
+#             echo ""
+#             echo "=== Pod Status ==="
+#             kubectl get pods -n kubesentinel -l app=kubesentinel-ai
+#             echo ""
+#             echo "=== Pod Events ==="
+#             kubectl describe pod -n kubesentinel -l app=kubesentinel-ai | grep -A 20 "Events:"
+#             echo ""
+#             echo "=== Pod Logs (last 100 lines) ==="
+#             kubectl logs -n kubesentinel -l app=kubesentinel-ai --tail=100 --timestamps=true 2>/dev/null || echo "No logs available (pod may not have started)"
+#             echo ""
+#             echo "=== Deployment Status ==="
+#             kubectl describe deployment kubesentinel-ai -n kubesentinel | grep -A 10 "Replicas:"
+#             exit 1
+#           fi
+#         shell: bash
 
-      - name: Display Dashboard Access Info
-        if: success()
-        run: |
-          VM_IP=$(hostname -I | awk '{print $1}')
-          echo "============================================================"
-          echo "      🚀 KubeSentinel AI Dashboard is LIVE!"
-          echo "============================================================"
-          echo "Access the dashboard from your tablet or browser at:"
-          echo "👉 http://$VM_IP:30500"
-          echo "here are the pods that lives in the vm"
-          kubectl get pods -A
-          echo "============================================================"
-        shell: bash
+#       - name: Display Dashboard Access Info
+#         if: success()
+#         run: |
+#           VM_IP=$(hostname -I | awk '{print $1}')
+#           echo "============================================================"
+#           echo "      🚀 KubeSentinel AI Dashboard is LIVE!"
+#           echo "============================================================"
+#           echo "Access the dashboard from your tablet or browser at:"
+#           echo "👉 http://$VM_IP:30500"
+#           echo "here are the pods that lives in the vm"
+#           kubectl get pods -A
+#           echo "============================================================"
+#         shell: bash
