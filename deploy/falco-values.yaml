@@ -65,13 +65,15 @@ falco:
   grpc_output:
     enabled: false
   
-  # File drop paths to monitor
+  # File output — write to named pipe for KubeSentinel
   file_output:
-    enabled: false
+    enabled: true
+    filename: /run/falco/falco.pipe
+    keep_alive: true
   
   # Stdout output (for logging/debugging)
   stdout_output:
-    enabled: true
+    enabled: false
   
   # Buffering options
   outputs:

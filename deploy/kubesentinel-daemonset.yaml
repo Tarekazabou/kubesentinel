@@ -331,6 +331,19 @@ spec:
       hostPID: false
       hostIPC: false
       
+      # Init container to create the named pipe for Falco output
+      initContainers:
+        - name: create-falco-pipe
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - mkfifo /run/falco/falco.pipe || true
+          volumeMounts:
+            - name: falco-socket
+              mountPath: /run/falco
+      
       # Tolerate all taints including master/control-plane nodes
       tolerations:
         - key: node-role.kubernetes.io/control-plane
@@ -367,10 +380,10 @@ spec:
           imagePullPolicy: IfNotPresent
           
           command:
-            - /app/kubesentinel
+            - /bin/sh
+            - -c
           args:
-            - monitor
-            - --config=/etc/kubesentinel/config.yaml
+            - "cat /run/falco/falco.pipe | /app/kubesentinel monitor-stdin --config=/etc/kubesentinel/config.yaml"
           
           ports:
             - name: metrics
@@ -426,7 +439,6 @@ spec:
           volumeMounts:
             - name: falco-socket
               mountPath: /run/falco
-              readOnly: true
             - name: config
               mountPath: /etc/kubesentinel/config.yaml
               subPath: config.yaml
@@ -447,7 +459,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - test -S /run/falco/falco.sock || exit 0  # Exit 0 if socket doesn't exist yet
+                - test -p /run/falco/falco.pipe || exit 0  # Exit 0 if pipe doesn't exist yet
             initialDelaySeconds: 30
             periodSeconds: 60
             timeoutSeconds: 5
