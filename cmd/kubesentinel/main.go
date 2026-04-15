@@ -201,6 +201,10 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	buffer, _ := cmd.Flags().GetInt("buffer")
 	source, _ := cmd.Flags().GetString("source")
 	aiEndpoint, _ := cmd.Flags().GetString("ai-endpoint")
+	warmupMinutes, _ := cmd.Flags().GetInt("warmup-minutes")
+	if warmupMinutes < 0 {
+		warmupMinutes = 0
+	}
 
 	// Start metrics server early
 	if metricsPort != "" {
@@ -219,6 +223,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	geminiEnabled := viper.GetBool("gemini.enabled")
 	geminiClassifyRuntime := viper.GetBool("gemini.classify_runtime")
 	geminiAPIKey := firstNonEmptyString(viper.GetString("gemini.api_key"), os.Getenv("GEMINI_API_KEY"))
+	trainingAPIToken := firstNonEmptyString(viper.GetString("ai.training_api_token"), os.Getenv("TRAINING_API_TOKEN"))
 	geminiModel := viper.GetString("gemini.model")
 	if geminiModel == "" {
 		geminiModel = "gemini-2.5-flash"
@@ -236,6 +241,9 @@ func runMonitor(cmd *cobra.Command, args []string) {
 	}
 	if aiEndpoint == "" {
 		aiEndpoint = viper.GetString("ai.endpoint")
+	}
+	if trainingAPIToken != "" {
+		_ = os.Setenv("TRAINING_API_TOKEN", trainingAPIToken)
 	}
 
 	config := &runtime.MonitorConfig{
@@ -256,6 +264,7 @@ func runMonitor(cmd *cobra.Command, args []string) {
 		GeminiModel:           geminiModel,
 		GeminiTimeoutSeconds:  geminiTimeout,
 		GeminiClassifyRuntime: geminiClassifyRuntime,
+		WarmupMinutes:         warmupMinutes,
 	}
 
 	monitor, err := runtime.NewMonitor(config)
@@ -443,6 +452,7 @@ func init() {
 	monitorStdinCmd.Flags().Int("buffer", 10000, "Event channel buffer size")
 	monitorStdinCmd.Flags().String("ai-endpoint", "http://localhost:5000", "AI/ML service endpoint")
 	monitorStdinCmd.Flags().String("metrics-port", "8080", "Prometheus metrics server port (empty to disable)")
+	monitorStdinCmd.Flags().Int("warmup-minutes", 10, "Minutes to collect baseline before enabling anomaly detection")
 	reportCmd := &cobra.Command{
 		Use:   "report",
 		Short: "Generate forensic investigation reports",

@@ -52,9 +52,9 @@ class AnomalyDetector:
             'unique_syscalls'
         ]
         self.load_or_create_model()
-        self.warmup_complete = False
+        self.warmup_complete = True
         self.warmup_samples = 0
-        self.warmup_threshold = 300
+        self.warmup_threshold = 0
     def load_or_create_model(self):
         """Load existing model or create new one"""
         if os.path.exists(self.model_path):
@@ -314,9 +314,13 @@ detector = AnomalyDetector()
 TRAINING_API_TOKEN = os.environ.get('TRAINING_API_TOKEN')
 
 def require_train_token(f):
-    """Decorator to verify training API token"""
+    """Decorator to verify training API token (optional for demo mode)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Demo mode: if no token is configured, skip auth checks.
+        if not TRAINING_API_TOKEN:
+            return f(*args, **kwargs)
+
         auth_header = request.headers.get('Authorization', '')
         
         # Check Bearer token format
@@ -327,7 +331,7 @@ def require_train_token(f):
         token = auth_header[7:]  # Remove 'Bearer ' prefix
         
         # Verify token matches
-        if not TRAINING_API_TOKEN or token != TRAINING_API_TOKEN:
+        if token != TRAINING_API_TOKEN:
             logger.warning(f"Invalid training token attempt")
             return jsonify({'error': 'Invalid token'}), 403
         
@@ -429,7 +433,10 @@ def model_info():
 def get_ai_incidents():
     """Read incidents from forensics/ and enrich with Gemini where helpful"""
     try:
-        forensics_dir = Path(__file__).parent.parent / "forensics"
+        # Prefer mounted runtime forensics path in container, fallback to repo path for local dev.
+        forensics_dir = Path("/app/forensics")
+        if not forensics_dir.exists():
+            forensics_dir = Path(__file__).parent.parent / "forensics"
         if not forensics_dir.exists():
             return jsonify({"incidents": [], "error": "forensics folder not found", "last_analysis": datetime.now().isoformat()})
 

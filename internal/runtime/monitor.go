@@ -105,7 +105,7 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 		return nil, fmt.Errorf("failed to initialize forensic vault: %w", err)
 	}
 
-	processor := NewEventProcessor(config.Workers, aiClient, vault)
+	processor := NewEventProcessor(config.Workers, aiClient, config.WarmupMinutes, vault)
 	if config.GeminiEnabled && config.GeminiClassifyRuntime {
 		processor.GeminiClient = llm.NewGeminiClient(llm.GeminiConfig{
 			Enabled:        config.GeminiEnabled,
@@ -129,6 +129,9 @@ func (m *Monitor) Start() error {
 	// 1. Start the processor workers
 	// We wrap this in the Monitor's WaitGroup so we can wait for them during shutdown
 	m.Processor.Start(m.ctx, m.EventChan)
+	if !m.Processor.AIClient.HasAuthToken() {
+		fmt.Println("ℹ️  TRAINING_API_TOKEN is not set; running AI endpoints in demo mode (auth disabled when server token is unset)")
+	}
 
 	if err := m.Processor.AIClient.HealthCheck(m.ctx); err != nil {
 		fmt.Printf("⚠️  AI service not reachable (will fallback to rules): %v\n", err)

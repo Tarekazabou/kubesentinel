@@ -15,7 +15,7 @@ func TestProcessorConcurrency(t *testing.T) {
 		HTTPClient: &http.Client{Timeout: 5 * time.Second},
 		Threshold:  0.75,
 	}
-	processor := NewEventProcessor(12, mockClient)
+	processor := NewEventProcessor(12, mockClient, 0)
 	event := SecurityEvent{
 		Rule:   "Test Rule",
 		Fields: map[string]interface{}{"proc.cmdline": "ls", "proc.pname": "sh"},
