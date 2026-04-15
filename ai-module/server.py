@@ -19,9 +19,12 @@ import json
 import logging
 from datetime import datetime
 import os
+import time
 import google.generativeai as genai
 from pathlib import Path
 import glob
+from collections import deque
+from threading import Lock
 from dotenv import load_dotenv
 from functools import wraps
 
@@ -33,6 +36,27 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ENRICH_WITH_GEMINI = os.getenv('ENRICH_WITH_GEMINI', 'false').lower() in ('true', '1', 'yes')
+GEMINI_RATE_LIMIT_PER_MINUTE = int(os.getenv('GEMINI_RATE_LIMIT_PER_MINUTE', '25'))
+_gemini_call_timestamps = deque()
+_gemini_rate_lock = Lock()
+
+
+def can_call_gemini() -> bool:
+    """Allow up to GEMINI_RATE_LIMIT_PER_MINUTE calls within a rolling 60-second window."""
+    now = time.time()
+    cutoff = now - 60
+
+    with _gemini_rate_lock:
+        while _gemini_call_timestamps and _gemini_call_timestamps[0] < cutoff:
+            _gemini_call_timestamps.popleft()
+
+        if len(_gemini_call_timestamps) >= GEMINI_RATE_LIMIT_PER_MINUTE:
+            return False
+
+        _gemini_call_timestamps.append(now)
+        return True
+
+
 class AnomalyDetector:
     """Anomaly detection using Isolation Forest"""
     MODEL_VERSION = 2
@@ -470,43 +494,49 @@ def get_ai_incidents():
                     "explicitly stated" in incident.get("ai_analysis", "").lower()
                 ):
                     try:
-                        prompt = f"""..."""  # keep existing prompt
-                        response = gemini_model.generate_content(prompt)
-                        enhanced = response.text.strip()
-                        if len(enhanced) > 50:
-                            incident["ai_analysis"] = enhanced
+                        if can_call_gemini():
+                            prompt = f"""..."""  # keep existing prompt
+                            response = gemini_model.generate_content(prompt)
+                            enhanced = response.text.strip()
+                            if len(enhanced) > 50:
+                                incident["ai_analysis"] = enhanced
+                        else:
+                            logger.info("Gemini rate limit reached (25/min). Skipping enrichment for %s", incident['id'])
                     except Exception as gemini_err:
                         logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
                 # fall back gracefully - do NOT fail the whole endpoint
                 # Optional: Enhance ai_analysis with fresh Gemini call if the existing reason is too short/weak
-                if gemini_model and (len(incident["ai_analysis"]) < 100 or "explicitly stated" in incident["ai_analysis"].lower()):
+                if ENRICH_WITH_GEMINI and gemini_model and (len(incident["ai_analysis"]) < 100 or "explicitly stated" in incident["ai_analysis"].lower()):
                     try:
-                        prompt = f"""
-                        Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
-                        Incident Type: {incident['incident_type']}
-                        Severity: {incident['severity']}
-                        Description: {incident['description']}
-                        Process: {metadata.get('process_name', 'N/A')}
-                        Container: {incident['container_name']} in pod {incident['pod_name']}
-                        
-                        Focus on why this is suspicious and what the security team should investigate.
-                        """
-                        response = gemini_model.generate_content(prompt)
-                        enhanced = response.text.strip()
-                        if len(enhanced) > 50:
-                            incident["ai_analysis"] = enhanced
+                        if can_call_gemini():
+                            prompt = f"""
+                            Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
+                            Incident Type: {incident['incident_type']}
+                            Severity: {incident['severity']}
+                            Description: {incident['description']}
+                            Process: {metadata.get('process_name', 'N/A')}
+                            Container: {incident['container_name']} in pod {incident['pod_name']}
+                            
+                            Focus on why this is suspicious and what the security team should investigate.
+                            """
+                            response = gemini_model.generate_content(prompt)
+                            enhanced = response.text.strip()
+                            if len(enhanced) > 50:
+                                incident["ai_analysis"] = enhanced
+                        else:
+                            logger.info("Gemini rate limit reached (25/min). Skipping enrichment for %s", incident['id'])
                     except Exception as gemini_err:
                         logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
                 
                 # Optional ML enrichment (uncomment if you want fresh IsolationForest score)
-                # try:
-                #     features = metadata
-                #     ml_result = detector.predict(features)
-                #     incident["risk_score"] = round(ml_result["score"] * 100)
-                #     if ml_result.get("reason"):
-                #         incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
-                # except:
-                #     pass
+                try:
+                    features = metadata
+                    ml_result = detector.predict(features)
+                    incident["risk_score"] = round(ml_result["score"] * 100)
+                    if ml_result.get("reason"):
+                        incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
+                except:
+                    pass
                 
                 incidents.append(incident)
                 

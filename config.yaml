@@ -32,6 +32,6 @@ reporting:
 gemini:
   enabled: true
   classify_runtime: true
-  api_key: "AIzaSyAF8xky2TpK56DcAJ9wZme6Ne7wJE5zwVw"
-  model: "gemini-2.5-flash"
+  api_key: ""
+  model: "gemini-2.5-flash-lite"
   timeout_seconds: 15
