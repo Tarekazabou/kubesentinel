@@ -15,6 +15,7 @@ ai:
   model_path: "./ai-module/models/baseline.pkl"
   threshold: 0.75
   health_check_interval: "30s"
+  training_api_token: ""  # Optional: same value as kubesentinel-secrets training-api-token
 
 forensics:
   storage_path: "./forensics"

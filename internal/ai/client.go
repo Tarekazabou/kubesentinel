@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type Client struct {
 	Endpoint   string
 	HTTPClient *http.Client
 	Threshold  float64
+	AuthToken  string
 }
 
 // AnomalyRequest represents a request to the AI service
@@ -70,10 +72,16 @@ func NewClient(endpoint string, threshold float64) *Client {
 	return &Client{
 		Endpoint:  endpoint,
 		Threshold: threshold,
+		AuthToken: os.Getenv("TRAINING_API_TOKEN"),
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// HasAuthToken reports whether the AI client can authenticate to protected endpoints.
+func (c *Client) HasAuthToken() bool {
+	return c != nil && c.AuthToken != ""
 }
 
 // DetectAnomaly sends features to AI service for anomaly detection
@@ -100,6 +108,9 @@ func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*An
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if c.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
 
 	// Send request
 	resp, err := c.doWithRetry(ctx, req)
@@ -169,6 +180,9 @@ func (c *Client) UpdateBaseline(ctx context.Context, trainingData []FeatureVecto
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if c.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.AuthToken)
+	}
 
 	// Send request
 	resp, err := c.doWithRetry(ctx, req)

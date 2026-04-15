@@ -89,11 +89,14 @@ func (ep *EventProcessor) TrainBaseline(ctx context.Context) {
 	}
 }
 
-// NewEventProcessor creates a new event processor with optional warm-up phase
-func NewEventProcessor(workers int, aiClient *ai.Client, vault ...*forensics.Vault) *EventProcessor {
+// NewEventProcessor creates a new event processor with optional warm-up phase.
+func NewEventProcessor(workers int, aiClient *ai.Client, warmupMinutes int, vault ...*forensics.Vault) *EventProcessor {
 	var forensicVault *forensics.Vault
 	if len(vault) > 0 {
 		forensicVault = vault[0]
+	}
+	if warmupMinutes < 0 {
+		warmupMinutes = 0
 	}
 
 	ep := &EventProcessor{
@@ -109,7 +112,7 @@ func NewEventProcessor(workers int, aiClient *ai.Client, vault ...*forensics.Vau
 		AIClient:       aiClient,
 		Vault:          forensicVault,
 		normalBuffer:   make([]ai.FeatureVector, 0, 200),
-		WarmupMinutes:  10,            // default warm-up period
+		WarmupMinutes:  warmupMinutes,
 		warmupComplete: atomic.Bool{}, // starts false
 	}
 
