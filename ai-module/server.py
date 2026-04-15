@@ -529,14 +529,14 @@ def get_ai_incidents():
                         logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
                 
                 # Optional ML enrichment (uncomment if you want fresh IsolationForest score)
-                # try:
-                #     features = metadata
-                #     ml_result = detector.predict(features)
-                #     incident["risk_score"] = round(ml_result["score"] * 100)
-                #     if ml_result.get("reason"):
-                #         incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
-                # except:
-                #     pass
+                try:
+                    features = metadata
+                    ml_result = detector.predict(features)
+                    incident["risk_score"] = round(ml_result["score"] * 100)
+                    if ml_result.get("reason"):
+                        incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
+                except:
+                    pass
                 
                 incidents.append(incident)
                 
