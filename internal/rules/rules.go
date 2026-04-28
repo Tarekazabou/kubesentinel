@@ -2,7 +2,7 @@ package static
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -66,7 +66,7 @@ func (re *RulesEngine) loadRules(rulesPath string) error {
 	}
 
 	for _, file := range files {
-		content, err := ioutil.ReadFile(file)
+		content, err := os.ReadFile(file)
 		if err != nil {
 			return fmt.Errorf("failed to read rule file %s: %w", file, err)
 		}

@@ -1,11 +1,13 @@
 package types
 
 type Violation struct {
-    RuleID      string `json:"rule_id"`
-    Severity    string `json:"severity"`
-    Description string `json:"description"`     // ← added
-    Remediation string `json:"remediation"`
-    Path        string `json:"path,omitempty"`  // ← added
-    Resource    string `json:"resource,omitempty"`
-    LineNumber  int    `json:"line_number,omitempty"`
+	// Violation is the canonical manifest finding contract shared by the Go
+	// and Python scanners.
+	RuleID      string `json:"rule_id"`
+	Severity    string `json:"severity"`
+	Description string `json:"description"`
+	Remediation string `json:"remediation"`
+	Path        string `json:"path,omitempty"`
+	Resource    string `json:"resource,omitempty"`
+	LineNumber  int    `json:"line_number,omitempty"`
 }

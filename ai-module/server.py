@@ -5,13 +5,10 @@ AI/ML Service for KubeSentinel
 Provides behavioral anomaly detection using scikit-learn
 """
 
-from email.policy import default
-
-from flask import Flask, request, jsonify , send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from sklearn.ensemble import IsolationForest
 from flask_cors import CORS
 from sklearn.preprocessing import StandardScaler
-from flask import send_from_directory
 import numpy as np
 import pickle
 import pandas as pd
@@ -32,13 +29,22 @@ from functools import wraps
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        'CORS_ALLOWED_ORIGINS',
+        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000,http://127.0.0.1:5000'
+    ).split(',')
+    if origin.strip()
+]
+CORS(app, origins=_cors_origins)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ENRICH_WITH_GEMINI = os.getenv('ENRICH_WITH_GEMINI', 'false').lower() in ('true', '1', 'yes')
 GEMINI_RATE_LIMIT_PER_MINUTE = int(os.getenv('GEMINI_RATE_LIMIT_PER_MINUTE', '25'))
 _gemini_call_timestamps = deque()
 _gemini_rate_lock = Lock()
+detector_lock = Lock()
 
 
 def can_call_gemini() -> bool:
@@ -76,9 +82,9 @@ class AnomalyDetector:
             'unique_syscalls'
         ]
         self.load_or_create_model()
-        self.warmup_complete = True
+        self.warmup_complete = False
         self.warmup_samples = 0
-        self.warmup_threshold = 0
+        self.warmup_threshold = int(os.getenv('WARMUP_THRESHOLD', '50'))
     def load_or_create_model(self):
         """Load existing model or create new one"""
         if os.path.exists(self.model_path):
@@ -171,7 +177,8 @@ class AnomalyDetector:
     
     def save_model(self):
         """Save model to disk"""
-        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
+        model_dir = os.path.dirname(self.model_path) or '.'
+        os.makedirs(model_dir, exist_ok=True)
         with open(self.model_path, 'wb') as f:
             pickle.dump({
                 'model': self.model,
@@ -391,11 +398,12 @@ def health_check():
     })
 @app.route('/warmup/status', methods=['GET'])
 def warmup_status():
-    return jsonify({
-        "warmup_complete": detector.warmup_complete,
-        "samples_collected": detector.warmup_samples,
-        "threshold": detector.warmup_threshold
-    })
+    with detector_lock:
+        return jsonify({
+            "warmup_complete": detector.warmup_complete,
+            "samples_collected": detector.warmup_samples,
+            "threshold": detector.warmup_threshold
+        })
 @app.route('/models/baseline.pkl', methods=['GET'])
 @require_train_token
 def download_model():
@@ -412,7 +420,8 @@ def predict():
             return jsonify({'error': 'Missing features in request'}), 400
         
         features = data['features']
-        result = detector.predict(features)
+        with detector_lock:
+            result = detector.predict(features)
         
         logger.info(f"Prediction: anomaly={result['is_anomaly']}, score={result['score']:.3f}")
         
@@ -432,7 +441,8 @@ def train():
             return jsonify({'error': 'Missing training_data in request'}), 400
         
         training_data = data['training_data']
-        detector.train(training_data)
+        with detector_lock:
+            detector.train(training_data)
         
         return jsonify({
             'status': 'success',
@@ -446,13 +456,27 @@ def train():
 @app.route('/model/info', methods=['GET'])
 def model_info():
     """Get model information"""
-    return jsonify({
-        'type': 'IsolationForest',
-        'features': detector.feature_names,
-        'n_estimators': detector.model.n_estimators if detector.model else None,
-        'contamination': detector.model.contamination if detector.model else None,
-        'model_path': detector.model_path
-    })
+    with detector_lock:
+        return jsonify({
+            'type': 'IsolationForest',
+            'features': detector.feature_names,
+            'n_estimators': detector.model.n_estimators if detector.model else None,
+            'contamination': detector.model.contamination if detector.model else None,
+            'model_path': detector.model_path
+        })
+
+
+def build_gemini_prompt(incident, metadata):
+    return f"""
+Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
+Incident Type: {incident['incident_type']}
+Severity: {incident['severity']}
+Description: {incident['description']}
+Process: {metadata.get('process_name', 'N/A')}
+Container: {incident['container_name']} in pod {incident['pod_name']}
+
+Focus on why this is suspicious and what the security team should investigate.
+"""
 @app.route('/api/incidents', methods=['GET'])
 def get_ai_incidents():
     """Read incidents from forensics/ and enrich with Gemini where helpful"""
@@ -489,36 +513,10 @@ def get_ai_incidents():
                     "related_events": len(events),
                     "raw_file": Path(json_file).name
                 }
-                if ENRICH_WITH_GEMINI and gemini_model and (
-                    len(incident.get("ai_analysis", "")) < 100 or 
-                    "explicitly stated" in incident.get("ai_analysis", "").lower()
-                ):
-                    try:
-                        if can_call_gemini():
-                            prompt = f"""..."""  # keep existing prompt
-                            response = gemini_model.generate_content(prompt)
-                            enhanced = response.text.strip()
-                            if len(enhanced) > 50:
-                                incident["ai_analysis"] = enhanced
-                        else:
-                            logger.info("Gemini rate limit reached (25/min). Skipping enrichment for %s", incident['id'])
-                    except Exception as gemini_err:
-                        logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
-                # fall back gracefully - do NOT fail the whole endpoint
-                # Optional: Enhance ai_analysis with fresh Gemini call if the existing reason is too short/weak
                 if ENRICH_WITH_GEMINI and gemini_model and (len(incident["ai_analysis"]) < 100 or "explicitly stated" in incident["ai_analysis"].lower()):
                     try:
                         if can_call_gemini():
-                            prompt = f"""
-                            Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
-                            Incident Type: {incident['incident_type']}
-                            Severity: {incident['severity']}
-                            Description: {incident['description']}
-                            Process: {metadata.get('process_name', 'N/A')}
-                            Container: {incident['container_name']} in pod {incident['pod_name']}
-                            
-                            Focus on why this is suspicious and what the security team should investigate.
-                            """
+                            prompt = build_gemini_prompt(incident, metadata)
                             response = gemini_model.generate_content(prompt)
                             enhanced = response.text.strip()
                             if len(enhanced) > 50:
@@ -531,7 +529,8 @@ def get_ai_incidents():
                 # Optional ML enrichment (uncomment if you want fresh IsolationForest score)
                 try:
                     features = metadata
-                    ml_result = detector.predict(features)
+                    with detector_lock:
+                        ml_result = detector.predict(features)
                     incident["risk_score"] = round(ml_result["score"] * 100)
                     if ml_result.get("reason"):
                         incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"

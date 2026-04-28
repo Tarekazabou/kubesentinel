@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import List, Dict
 
+from cspm.manifest_contract import build_finding
+
 
 class ManifestScanner:
     """Scanner for Kubernetes manifests to detect security issues."""
@@ -62,51 +64,51 @@ class ManifestScanner:
             
             # Check 1: Privileged containers
             if container.get('securityContext', {}).get('privileged'):
-                findings.append({
-                    'severity': 'CRITICAL',
-                    'rule': 'privileged_container',
-                    'message': f'Container {container_name} in {name} is running as privileged',
-                    'remediation': 'Set securityContext.privileged to false'
-                })
+                findings.append(build_finding(
+                    rule_id='privileged_container',
+                    severity='critical',
+                    description=f'Container {container_name} in {name} is running as privileged',
+                    remediation='Set securityContext.privileged to false'
+                ))
             
             # Check 2: Missing resource limits
             if 'resources' not in container or not container['resources'].get('limits'):
-                findings.append({
-                    'severity': 'HIGH',
-                    'rule': 'missing_resource_limits',
-                    'message': f'Container {container_name} in {name} has no resource limits',
-                    'remediation': 'Set resources.limits.cpu and resources.limits.memory'
-                })
+                findings.append(build_finding(
+                    rule_id='missing_resource_limits',
+                    severity='high',
+                    description=f'Container {container_name} in {name} has no resource limits',
+                    remediation='Set resources.limits.cpu and resources.limits.memory'
+                ))
             
             # Check 3: Running as root
             security_ctx = container.get('securityContext', {})
             if security_ctx.get('runAsUser') is None or security_ctx.get('runAsUser') == 0:
-                findings.append({
-                    'severity': 'HIGH',
-                    'rule': 'runs_as_root',
-                    'message': f'Container {container_name} may run as root (runAsUser not set)',
-                    'remediation': 'Set securityContext.runAsUser to a non-zero value'
-                })
+                findings.append(build_finding(
+                    rule_id='runs_as_root',
+                    severity='high',
+                    description=f'Container {container_name} may run as root (runAsUser not set)',
+                    remediation='Set securityContext.runAsUser to a non-zero value'
+                ))
             
             # Check 4: hostPath mounts
             volumes = spec.get('volumes', [])
             for volume in volumes:
                 if 'hostPath' in volume:
-                    findings.append({
-                        'severity': 'HIGH',
-                        'rule': 'hostpath_mount',
-                        'message': f'Pod {name} mounts hostPath volume {volume["name"]}',
-                        'remediation': 'Use PersistentVolumes instead of hostPath'
-                    })
+                    findings.append(build_finding(
+                        rule_id='hostpath_mount',
+                        severity='high',
+                        description=f'Pod {name} mounts hostPath volume {volume["name"]}',
+                        remediation='Use PersistentVolumes instead of hostPath'
+                    ))
             
             # Check 5: Writable filesystem
             if not security_ctx.get('readOnlyRootFilesystem'):
-                findings.append({
-                    'severity': 'MEDIUM',
-                    'rule': 'writable_filesystem',
-                    'message': f'Container {container_name} has writable root filesystem',
-                    'remediation': 'Set securityContext.readOnlyRootFilesystem to true'
-                })
+                findings.append(build_finding(
+                    rule_id='writable_filesystem',
+                    severity='medium',
+                    description=f'Container {container_name} has writable root filesystem',
+                    remediation='Set securityContext.readOnlyRootFilesystem to true'
+                ))
             
             # Check 6: Dangerous capabilities
             capabilities = security_ctx.get('capabilities', {})
@@ -114,22 +116,22 @@ class ManifestScanner:
             dangerous_caps = ['NET_ADMIN', 'SYS_ADMIN', 'SYS_MODULE']
             for cap in added_caps:
                 if cap in dangerous_caps:
-                    findings.append({
-                        'severity': 'HIGH',
-                        'rule': 'dangerous_capabilities',
-                        'message': f'Container {container_name} has dangerous capability: {cap}',
-                        'remediation': f'Remove {cap} from securityContext.capabilities.add'
-                    })
+                    findings.append(build_finding(
+                        rule_id='dangerous_capabilities',
+                        severity='high',
+                        description=f'Container {container_name} has dangerous capability: {cap}',
+                        remediation=f'Remove {cap} from securityContext.capabilities.add'
+                    ))
             
             # Check 7: Image pull policy
             image_pull_policy = container.get('imagePullPolicy', 'IfNotPresent')
             if image_pull_policy == 'Never':
-                findings.append({
-                    'severity': 'MEDIUM',
-                    'rule': 'image_pull_never',
-                    'message': f'Container {container_name} has imagePullPolicy set to Never',
-                    'remediation': 'Use Always or IfNotPresent for imagePullPolicy'
-                })
+                findings.append(build_finding(
+                    rule_id='image_pull_never',
+                    severity='medium',
+                    description=f'Container {container_name} has imagePullPolicy set to Never',
+                    remediation='Use Always or IfNotPresent for imagePullPolicy'
+                ))
         
         return findings
     
@@ -145,23 +147,23 @@ class ManifestScanner:
             
             # Check for wildcard permissions
             if '*' in verbs or '*' in resources or '*' in api_groups:
-                findings.append({
-                    'severity': 'HIGH',
-                    'rule': 'overly_permissive_rbac',
-                    'message': f'Role {name} has wildcard permissions in verbs, resources, or apiGroups',
-                    'remediation': 'Restrict to specific verbs and resources'
-                })
+                findings.append(build_finding(
+                    rule_id='overly_permissive_rbac',
+                    severity='high',
+                    description=f'Role {name} has wildcard permissions in verbs, resources, or apiGroups',
+                    remediation='Restrict to specific verbs and resources'
+                ))
             
             # Check for dangerous verbs
             dangerous_verbs = ['*', 'create', 'delete', 'deletecollection']
             if any(v in verbs for v in dangerous_verbs):
                 if '*' in resources:
-                    findings.append({
-                        'severity': 'CRITICAL',
-                        'rule': 'dangerous_permissions',
-                        'message': f'Role {name} allows dangerous verbs on all resources',
-                        'remediation': 'Limit dangerous verbs to essential resources only'
-                    })
+                    findings.append(build_finding(
+                        rule_id='dangerous_permissions',
+                        severity='critical',
+                        description=f'Role {name} allows dangerous verbs on all resources',
+                        remediation='Limit dangerous verbs to essential resources only'
+                    ))
         
         return findings
 
@@ -175,6 +177,7 @@ def scan_directory(directory: str) -> List[Dict]:
         try:
             findings = scanner.scan_manifest(str(yaml_file))
             for finding in findings:
+                finding['path'] = str(yaml_file)
                 finding['file'] = str(yaml_file)
             all_findings.extend(findings)
         except Exception as e:
@@ -188,5 +191,6 @@ def scan_file(file_path: str) -> List[Dict]:
     scanner = ManifestScanner()
     findings = scanner.scan_manifest(file_path)
     for finding in findings:
+        finding['path'] = file_path
         finding['file'] = file_path
     return findings

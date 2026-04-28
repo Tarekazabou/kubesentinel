@@ -2,7 +2,6 @@ package scanner
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,7 +104,7 @@ func (s *Scanner) ScanFile(filePath string) (ScanResult, error) {
 	}
 
 	// 1. Read file content
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return result, fmt.Errorf("failed to read manifest %s: %w", filePath, err)
 	}
@@ -236,7 +235,7 @@ func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violati
 			if privileged, ok := securityContext["privileged"].(bool); ok && privileged {
 				return &types.Violation{
 					RuleID:      "KS-PRIV-001",
-					Severity:    "critical",
+					Severity:    "CRITICAL",
 					Description: fmt.Sprintf("Privileged container found: %s", container["name"]), // ← changed
 					Resource:    s.getResourceName(resource),
 					Remediation: "Set securityContext.privileged to false",
@@ -260,7 +259,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 		if !ok {
 			return &types.Violation{
 				RuleID:      "SEC-002",
-				Severity:    "high",
+				Severity:    "HIGH",
 				Description: "Container missing resource limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add resources.limits.cpu and resources.limits.memory to container spec",
@@ -271,7 +270,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 		if !ok || limits["cpu"] == nil || limits["memory"] == nil {
 			return &types.Violation{
 				RuleID:      "SEC-002",
-				Severity:    "high",
+				Severity:    "HIGH",
 				Description: "Container missing CPU or memory limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Define both CPU and memory limits in resources.limits",
@@ -294,7 +293,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 			if runAsNonRoot, ok := securityContext["runAsNonRoot"].(bool); !ok || !runAsNonRoot {
 				return &types.Violation{
 					RuleID:      "SEC-003",
-					Severity:    "medium",
+					Severity:    "MEDIUM",
 					Description: "Container may run as root user",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.runAsNonRoot: true",
@@ -303,7 +302,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 		} else {
 			return &types.Violation{
 				RuleID:      "SEC-003",
-				Severity:    "medium",
+				Severity:    "MEDIUM",
 				Description: "Missing security context for non-root enforcement",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add securityContext with runAsNonRoot: true",
@@ -326,7 +325,7 @@ func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
 			if readOnlyRootFS, ok := securityContext["readOnlyRootFilesystem"].(bool); !ok || !readOnlyRootFS {
 				return &types.Violation{
 					RuleID:      "SEC-004",
-					Severity:    "medium",
+					Severity:    "MEDIUM",
 					Description: "Container filesystem is not read-only",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.readOnlyRootFilesystem: true",
@@ -349,7 +348,7 @@ func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
 		if _, ok := container["securityContext"]; !ok {
 			return &types.Violation{
 				RuleID:      "SEC-005",
-				Severity:    "low",
+				Severity:    "LOW",
 				Description: "Container missing security context",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add comprehensive securityContext with appropriate settings",
@@ -388,9 +387,8 @@ func (s *Scanner) parseYAML(content []byte) ([]K8sResource, error) {
 func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 	containers := []map[string]interface{}{}
 
-	// Handle Pod
-	if resource.Kind == "Pod" {
-		if containersList, ok := resource.Spec["containers"].([]interface{}); ok {
+	appendContainers := func(spec map[string]interface{}) {
+		if containersList, ok := spec["containers"].([]interface{}); ok {
 			for _, c := range containersList {
 				if container, ok := c.(map[string]interface{}); ok {
 					containers = append(containers, container)
@@ -399,18 +397,28 @@ func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 		}
 	}
 
-	// Handle Deployment
-	if resource.Kind == "Deployment" {
-		if template, ok := resource.Spec["template"].(map[string]interface{}); ok {
-			if spec, ok := template["spec"].(map[string]interface{}); ok {
-				if containersList, ok := spec["containers"].([]interface{}); ok {
-					for _, c := range containersList {
-						if container, ok := c.(map[string]interface{}); ok {
-							containers = append(containers, container)
-						}
-					}
-				}
+	getNestedSpec := func(root map[string]interface{}, path ...string) map[string]interface{} {
+		current := root
+		for _, key := range path {
+			next, ok := current[key].(map[string]interface{})
+			if !ok {
+				return nil
 			}
+			current = next
+		}
+		return current
+	}
+
+	switch resource.Kind {
+	case "Pod":
+		appendContainers(resource.Spec)
+	case "Deployment", "DaemonSet", "StatefulSet", "Job":
+		if spec := getNestedSpec(resource.Spec, "template", "spec"); spec != nil {
+			appendContainers(spec)
+		}
+	case "CronJob":
+		if spec := getNestedSpec(resource.Spec, "jobTemplate", "spec", "template", "spec"); spec != nil {
+			appendContainers(spec)
 		}
 	}
 

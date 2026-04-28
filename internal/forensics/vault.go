@@ -10,8 +10,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+var forensicIDSeq atomic.Uint64
 
 // Vault manages forensic evidence storage
 type Vault struct {
@@ -298,7 +301,7 @@ func (rp *RetentionPolicy) ShouldRetain(record ForensicRecord) bool {
 // Helper functions
 
 func generateID() string {
-	return fmt.Sprintf("%d", time.Now().UnixNano())
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), forensicIDSeq.Add(1))
 }
 
 type vaultFileInfo struct {

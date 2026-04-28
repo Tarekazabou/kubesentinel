@@ -22,9 +22,9 @@ var ErrEventChannelClosed = errors.New("event channel closed")
 
 // Monitor handles runtime security monitoring *
 type Monitor struct {
-	Config    *MonitorConfig
-	EventChan chan SecurityEvent
-	Processor *EventProcessor
+	config    *MonitorConfig
+	eventChan chan SecurityEvent
+	processor *EventProcessor
 	ctx       context.Context
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
@@ -116,31 +116,46 @@ func NewMonitor(config *MonitorConfig) (*Monitor, error) {
 	}
 
 	return &Monitor{
-		Config:    config,
-		EventChan: make(chan SecurityEvent, config.BufferSize),
-		Processor: processor,
+		config:    config,
+		eventChan: make(chan SecurityEvent, config.BufferSize),
+		processor: processor,
 		ctx:       ctx,
 		cancel:    cancel,
 	}, nil
+}
+
+// Config returns the monitor configuration.
+func (m *Monitor) Config() *MonitorConfig {
+	return m.config
+}
+
+// EventChan returns the runtime event channel.
+func (m *Monitor) EventChan() chan SecurityEvent {
+	return m.eventChan
+}
+
+// Processor returns the event processor.
+func (m *Monitor) Processor() *EventProcessor {
+	return m.processor
 }
 func (m *Monitor) Start() error {
 	fmt.Println("Starting runtime monitor...")
 
 	// 1. Start the processor workers
 	// We wrap this in the Monitor's WaitGroup so we can wait for them during shutdown
-	m.Processor.Start(m.ctx, m.EventChan)
-	if !m.Processor.AIClient.HasAuthToken() {
+	m.processor.Start(m.ctx, m.eventChan)
+	if !m.processor.AIClient.HasAuthToken() {
 		fmt.Println("ℹ️  TRAINING_API_TOKEN is not set; running AI endpoints in demo mode (auth disabled when server token is unset)")
 	}
 
-	if err := m.Processor.AIClient.HealthCheck(m.ctx); err != nil {
+	if err := m.processor.AIClient.HealthCheck(m.ctx); err != nil {
 		fmt.Printf("⚠️  AI service not reachable (will fallback to rules): %v\n", err)
 	} else {
 		fmt.Println("✅ AI service healthy – behavioral anomaly detection enabled")
 	}
 
 	// 2. Start source-specific event intake.
-	switch m.Config.Source {
+	switch m.config.Source {
 	case "webhook":
 		fmt.Println("Webhook source enabled. Waiting for HTTP /events payloads...")
 	case "stdin":
@@ -164,14 +179,14 @@ func (m *Monitor) Start() error {
 
 func (m *Monitor) consumeFromSocket() {
 	for {
-		conn, err := net.Dial("unix", m.Config.FalcoSocket)
+		conn, err := net.Dial("unix", m.config.FalcoSocket)
 		if err != nil {
-			fmt.Printf("Failed to connect to Falco socket %s: %v\n", m.Config.FalcoSocket, err)
+			fmt.Printf("Failed to connect to Falco socket %s: %v\n", m.config.FalcoSocket, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		fmt.Printf("Connected to Falco socket: %s\n", m.Config.FalcoSocket)
+		fmt.Printf("Connected to Falco socket: %s\n", m.config.FalcoSocket)
 
 		scanner := bufio.NewScanner(conn)
 		for scanner.Scan() {
@@ -191,7 +206,7 @@ func (m *Monitor) consumeFromSocket() {
 			}
 
 			select {
-			case m.EventChan <- event:
+			case m.eventChan <- event:
 			default:
 				fmt.Println("Warning: event channel full, dropping event")
 			}
@@ -226,8 +241,8 @@ func (m *Monitor) consumeFromStdin() {
 	}
 
 	fmt.Println("stdin closed → draining remaining events...")
-	m.closeOnce.Do(func() { close(m.EventChan) })
-	m.Processor.Wait()
+	m.closeOnce.Do(func() { close(m.eventChan) })
+	m.processor.Wait()
 	time.Sleep(100 * time.Millisecond)
 	fmt.Println("Monitor shutdown complete.")
 }
@@ -276,7 +291,7 @@ func (m *Monitor) ProcessJSONEvent(data []byte) (bool, error) {
 	select {
 	case <-m.ctx.Done():
 		return false, context.Canceled
-	case m.EventChan <- event:
+	case m.eventChan <- event:
 		return true, nil
 	default:
 		return false, fmt.Errorf("event buffer full")
@@ -309,13 +324,13 @@ func (m *Monitor) shouldProcessEvent(event SecurityEvent) bool {
 	}
 
 	// 2. Namespace must match (if set)
-	if m.Config.Namespace != "" && event.Container.Namespace != m.Config.Namespace {
+	if m.config.Namespace != "" && event.Container.Namespace != m.config.Namespace {
 		return false
 	}
 
 	// 3. Pod must match (if set)
-	if m.Config.Deployment != "" {
-		if event.Container.PodName == "" || !strings.Contains(event.Container.PodName, m.Config.Deployment) {
+	if m.config.Deployment != "" {
+		if event.Container.PodName == "" || !strings.Contains(event.Container.PodName, m.config.Deployment) {
 			return false
 		}
 	}
@@ -340,7 +355,7 @@ func (m *Monitor) collectMetrics() {
 		case <-m.ctx.Done():
 			return
 		case <-ticker.C:
-			metrics := m.Processor.GetMetrics()
+			metrics := m.processor.GetMetrics()
 			fmt.Printf("Metrics - Events: %d, Processed: %d, Anomalies: %d\n",
 				metrics.TotalEvents,
 				metrics.ProcessedEvents,
@@ -354,14 +369,9 @@ func (m *Monitor) Stop() {
 		return
 	}
 	m.cancel()
-	m.closeOnce.Do(func() { close(m.EventChan) })
+	m.closeOnce.Do(func() { close(m.eventChan) })
 }
 
 func (m *Monitor) Wait() {
 	m.wg.Wait()
-}
-
-// contains is a simple substring check (you already had a version)
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
 }
