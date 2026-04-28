@@ -106,6 +106,25 @@ func TestGetContainersSupportsCommonWorkloads(t *testing.T) {
 			},
 			wantContainers: 1,
 		},
+		{
+			name: "replicaset with init container",
+			resource: K8sResource{
+				Kind: "ReplicaSet",
+				Spec: map[string]interface{}{
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"containers": []interface{}{
+								map[string]interface{}{"name": "app"},
+							},
+							"initContainers": []interface{}{
+								map[string]interface{}{"name": "init"},
+							},
+						},
+					},
+				},
+			},
+			wantContainers: 2,
+		},
 	}
 
 	for _, test := range tests {

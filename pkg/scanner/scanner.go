@@ -56,12 +56,14 @@ func NewScanner(config *ScanConfig) (*Scanner, error) {
 // supportedWorkloadKinds checks if a resource kind has container specs
 func (s *Scanner) supportedWorkloadKinds(kind string) bool {
 	supported := map[string]bool{
-		"Pod":         true,
-		"Deployment":  true,
-		"DaemonSet":   true,
-		"StatefulSet": true,
-		"Job":         true,
-		"CronJob":     true,
+		"Pod":                   true,
+		"Deployment":            true,
+		"DaemonSet":             true,
+		"StatefulSet":           true,
+		"Job":                   true,
+		"CronJob":               true,
+		"ReplicaSet":            true,
+		"ReplicationController": true,
 	}
 	return supported[kind]
 }
@@ -388,7 +390,11 @@ func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 	containers := []map[string]interface{}{}
 
 	appendContainers := func(spec map[string]interface{}) {
-		if containersList, ok := spec["containers"].([]interface{}); ok {
+		for _, key := range []string{"containers", "initContainers", "ephemeralContainers"} {
+			containersList, ok := spec[key].([]interface{})
+			if !ok {
+				continue
+			}
 			for _, c := range containersList {
 				if container, ok := c.(map[string]interface{}); ok {
 					containers = append(containers, container)
@@ -412,7 +418,7 @@ func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 	switch resource.Kind {
 	case "Pod":
 		appendContainers(resource.Spec)
-	case "Deployment", "DaemonSet", "StatefulSet", "Job":
+	case "Deployment", "DaemonSet", "StatefulSet", "Job", "ReplicaSet", "ReplicationController":
 		if spec := getNestedSpec(resource.Spec, "template", "spec"); spec != nil {
 			appendContainers(spec)
 		}

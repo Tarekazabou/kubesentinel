@@ -25,6 +25,7 @@ type EventProcessor struct {
 	wg               sync.WaitGroup
 	warmupMinutes    int
 	warmupComplete   atomic.Bool
+	cancelLoops      context.CancelFunc
 }
 
 // ProcessorMetrics tracks processing statistics
@@ -139,27 +140,50 @@ func NewEventProcessor(workers int, aiClient *ai.Client, warmupMinutes int, vaul
 		ep.warmupComplete.Store(true) // no warm-up → immediately active
 	}
 
+	loopCtx, loopCancel := context.WithCancel(context.Background())
+	ep.cancelLoops = loopCancel
+
 	// === AUTO TRAINING TICKER (runs after warm-up) ===
+	ep.wg.Add(1)
 	go func() {
+		defer ep.wg.Done()
 		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			if ep.warmupComplete.Load() {
-				ep.TrainBaseline(context.Background())
+		for {
+			select {
+			case <-loopCtx.Done():
+				return
+			case <-ticker.C:
+				if ep.warmupComplete.Load() {
+					ep.TrainBaseline(loopCtx)
+				}
 			}
 		}
 	}()
 
 	// Sliding window (you already had this)
+	ep.wg.Add(1)
 	go func() {
+		defer ep.wg.Done()
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			ep.FeatureExtractor.resetWindow()
+		for {
+			select {
+			case <-loopCtx.Done():
+				return
+			case <-ticker.C:
+				ep.FeatureExtractor.resetWindow()
+			}
 		}
 	}()
 
 	return ep
+}
+
+func (ep *EventProcessor) Stop() {
+	if ep.cancelLoops != nil {
+		ep.cancelLoops()
+	}
 }
 
 // Start begins processing events with worker goroutines
@@ -179,6 +203,7 @@ func (ep *EventProcessor) Start(ctx context.Context, eventChan <-chan SecurityEv
 		fmt.Println("All event processors stopped")
 	}()
 }
+
 func (ep *EventProcessor) Wait() {
 	ep.wg.Wait()
 }

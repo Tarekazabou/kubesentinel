@@ -179,10 +179,20 @@ func (m *Monitor) Start() error {
 
 func (m *Monitor) consumeFromSocket() {
 	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		default:
+		}
+
 		conn, err := net.Dial("unix", m.config.FalcoSocket)
 		if err != nil {
 			fmt.Printf("Failed to connect to Falco socket %s: %v\n", m.config.FalcoSocket, err)
-			time.Sleep(5 * time.Second)
+			select {
+			case <-m.ctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+			}
 			continue
 		}
 
@@ -206,6 +216,9 @@ func (m *Monitor) consumeFromSocket() {
 			}
 
 			select {
+			case <-m.ctx.Done():
+				conn.Close()
+				return
 			case m.eventChan <- event:
 			default:
 				fmt.Println("Warning: event channel full, dropping event")
@@ -369,6 +382,7 @@ func (m *Monitor) Stop() {
 		return
 	}
 	m.cancel()
+	m.processor.Stop()
 	m.closeOnce.Do(func() { close(m.eventChan) })
 }
 
