@@ -100,8 +100,8 @@ type FileOperation struct {
 
 // NewVault creates a new forensic vault
 func NewVault(config *VaultConfig) (*Vault, error) {
-	// Create storage directory if it doesn't exist
-	if err := os.MkdirAll(config.StoragePath, 0755); err != nil {
+	// Create storage directory with restricted permissions (owner-only).
+	if err := os.MkdirAll(config.StoragePath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -345,7 +345,8 @@ func (v *Vault) findFilesByRecordID(id string) ([]string, error) {
 }
 
 func (v *Vault) writeRecord(path string, data []byte) error {
-	file, err := os.Create(path)
+	// Open with O_EXCL-style permissions: owner read/write only (0600).
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

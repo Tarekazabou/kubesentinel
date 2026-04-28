@@ -79,12 +79,14 @@ func (c *GeminiClient) GenerateNarrative(ctx context.Context, prompt string) (Ge
 		return GeminiNarrative{}, err
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.config.Model, c.config.APIKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", c.config.Model)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return GeminiNarrative{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Pass API key as a header to avoid credential exposure in access logs and proxy logs.
+	req.Header.Set("x-goog-api-key", c.config.APIKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -177,12 +179,14 @@ func (c *GeminiClient) ClassifyRecord(ctx context.Context, record forensics.Fore
 		return IncidentClassification{}, err
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", c.config.Model, c.config.APIKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", c.config.Model)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(requestPayload))
 	if err != nil {
 		return IncidentClassification{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	// Pass API key as a header to avoid credential exposure in access logs and proxy logs.
+	req.Header.Set("x-goog-api-key", c.config.APIKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

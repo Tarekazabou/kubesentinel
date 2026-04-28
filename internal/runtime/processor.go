@@ -263,16 +263,14 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	fmt.Printf("[PROC] Extracted features for %s | file_access=%d | sensitive=%d\n",
 		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
 	if !ep.warmupComplete.Load() {
-		// Treat as normal during warm-up and feed to baseline immediately
+		// During warm-up, treat all events as normal and buffer feature vectors.
+		// The AutoTrain goroutine will call TrainBaseline when the timer fires.
 		aiVec := ep.toAIFeatureVector(features, event)
 		ep.bufferMu.Lock()
 		if len(ep.normalBuffer) < 200 {
 			ep.normalBuffer = append(ep.normalBuffer, aiVec)
 		}
 		ep.bufferMu.Unlock()
-
-		// Optional: push directly to AI baseline
-		_ = ep.AIClient.UpdateBaseline(context.Background(), []ai.FeatureVector{aiVec})
 
 		return ProcessedEvent{
 			Original:  event,
@@ -338,32 +336,6 @@ func (p *EventProcessor) calculateRisk(event SecurityEvent, features BehavioralF
 	return score
 }
 
-// isKnownThreat checks for known threat patterns
-func (ep *EventProcessor) isKnownThreat(event SecurityEvent) bool {
-	// Check for critical priority events
-	if event.Priority == "Critical" || event.Priority == "Emergency" {
-		return true
-	}
-
-	// Check for specific threat patterns
-	knownThreats := []string{
-		"Terminal shell in container",
-		"Modify binary dirs",
-		"Write below etc",
-		"Sensitive file opened for reading",
-		"Netcat Remote Code Execution",
-		"Launch Suspicious Network Tool",
-	}
-
-	for _, threat := range knownThreats {
-		if event.Rule == threat {
-			return true
-		}
-	}
-
-	return false
-}
-
 // storeForensicData stores forensic information for anomalous events
 func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	if ep.Vault == nil {
@@ -375,9 +347,6 @@ func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	}
 
 	record := buildForensicRecord(event.Original, event.Features, event.RiskScore, event.Timestamp)
-	fmt.Printf("[GEMINI DEBUG] Client enabled=%v | ClassifyRuntime=%v\n",
-		ep.GeminiClient != nil && ep.GeminiClient.Enabled(),
-		ep.GeminiClient != nil)
 	if ep.GeminiClient != nil && ep.GeminiClient.Enabled() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		classification, err := ep.GeminiClient.ClassifyRecord(ctx, record)
