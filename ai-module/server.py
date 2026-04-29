@@ -343,14 +343,18 @@ detector = AnomalyDetector()
 
 # ============== AUTHENTICATION SETUP ==============
 TRAINING_API_TOKEN = os.environ.get('TRAINING_API_TOKEN')
+ALLOW_UNAUTHENTICATED_API = os.environ.get('ALLOW_UNAUTHENTICATED_API', 'false').lower() in ('true', '1', 'yes')
 
 def require_train_token(f):
     """Decorator to verify training API token (optional for demo mode)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Demo mode: if no token is configured, skip auth checks.
-        if not TRAINING_API_TOKEN:
+        # Explicit demo mode only.
+        if ALLOW_UNAUTHENTICATED_API:
             return f(*args, **kwargs)
+        if not TRAINING_API_TOKEN:
+            logger.error("TRAINING_API_TOKEN is required when ALLOW_UNAUTHENTICATED_API is false")
+            return jsonify({'error': 'Server misconfiguration: auth token required'}), 503
 
         auth_header = request.headers.get('Authorization', '')
         
