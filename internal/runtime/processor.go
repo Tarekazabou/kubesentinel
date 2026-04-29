@@ -285,8 +285,6 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	// Note: Removed atomic.AddInt64 here because worker() already does it.
 
 	features := ep.FeatureExtractor.Extract(event)
-	fmt.Printf("[PROC] Extracted features for %s | file_access=%d | sensitive=%d\n",
-		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
 	if !ep.warmupComplete.Load() {
 		// During warm-up, treat all events as normal and buffer feature vectors.
 		// The AutoTrain goroutine will call TrainBaseline when the timer fires.

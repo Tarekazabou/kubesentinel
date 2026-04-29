@@ -19,6 +19,7 @@ import (
 )
 
 var ErrEventChannelClosed = errors.New("event channel closed")
+var ErrBufferFull = errors.New("event buffer full")
 
 // Monitor handles runtime security monitoring *
 type Monitor struct {
@@ -307,7 +308,7 @@ func (m *Monitor) ProcessJSONEvent(data []byte) (bool, error) {
 	case m.eventChan <- event:
 		return true, nil
 	default:
-		return false, fmt.Errorf("event buffer full")
+		return false, ErrBufferFull
 	}
 }
 
@@ -325,6 +326,16 @@ func (m *Monitor) parseEvent(data []byte) (SecurityEvent, error) {
 		// Essential for deployment/pod filtering
 		if pod, ok := event.Fields["k8s.pod.name"].(string); ok {
 			event.Container.PodName = pod
+		}
+		// Container identity — required for forensic records
+		if id, ok := event.Fields["container.id"].(string); ok {
+			event.Container.ID = id
+		}
+		if name, ok := event.Fields["container.name"].(string); ok {
+			event.Container.Name = name
+		}
+		if image, ok := event.Fields["container.image.repository"].(string); ok {
+			event.Container.Image = image
 		}
 	}
 	return event, nil

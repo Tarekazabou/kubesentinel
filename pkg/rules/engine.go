@@ -61,13 +61,25 @@ func getValueAtPath(data map[string]interface{}, path string) interface{} {
 }
 func (e *RulesEngine) ListRules() []Rule { return e.Rules }
 func NewRulesEngine(rulesDir string) (*RulesEngine, error) {
-	var allRules []Rule
+	engine := &RulesEngine{}
 
-	files, err := os.ReadDir(rulesDir)
-	if err != nil {
+	if err := engine.LoadRules(rulesDir); err != nil {
 		return nil, err
 	}
 
+	return engine, nil
+}
+
+// LoadRules reads all YAML rule files from the given directory and replaces
+// the current rule set. It is called by NewRulesEngine and can be called
+// again at runtime to hot-reload rules.
+func (e *RulesEngine) LoadRules(rulesDir string) error {
+	files, err := os.ReadDir(rulesDir)
+	if err != nil {
+		return err
+	}
+
+	var allRules []Rule
 	for _, file := range files {
 		if file.IsDir() || !isYamlFile(file.Name()) {
 			continue
@@ -76,18 +88,19 @@ func NewRulesEngine(rulesDir string) (*RulesEngine, error) {
 		path := filepath.Join(rulesDir, file.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", path, err)
+			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
 
 		var rules []Rule
 		if err := yaml.Unmarshal(data, &rules); err != nil {
-			return nil, fmt.Errorf("invalid yaml in %s: %w", path, err)
+			return fmt.Errorf("invalid yaml in %s: %w", path, err)
 		}
 
 		allRules = append(allRules, rules...)
 	}
 
-	return &RulesEngine{Rules: allRules}, nil
+	e.Rules = allRules
+	return nil
 }
 
 func (e *RulesEngine) Apply(resource map[string]interface{}) []types.Violation {
@@ -185,7 +198,13 @@ func violatesCheck(resource map[string]interface{}, check Check) bool {
 
 	// If path doesn't exist → depends on operator
 	if actualValue == nil {
-		return check.Operator == "exists" || (check.Operator == "notExists" && false)
+		if check.Operator == "exists" {
+			return false // path doesn't exist → "exists" check is not violated
+		}
+		if check.Operator == "notExists" {
+			return true // path doesn't exist → "notExists" check IS violated (condition met)
+		}
+		return false
 	}
 
 	switch check.Operator {

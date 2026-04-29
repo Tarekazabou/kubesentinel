@@ -245,7 +245,8 @@ class AnomalyDetector:
             # === NORMAL ANOMALY SCORING PHASE ===
             prediction = self.model.predict(X_scaled)[0]
             score = self.model.score_samples(X_scaled)[0]
-            normalized_score = 1 / (1 + np.exp(score))
+            # Linear mapping: score > 0 → 0.0 (normal), score = -0.5 → 1.0 (anomaly)
+            normalized_score = float(np.clip(-score * 2, 0.0, 1.0))
 
             is_anomaly = prediction == -1
             confidence = abs(score)
@@ -538,7 +539,7 @@ def get_ai_incidents():
                     incident["risk_score"] = round(ml_result["score"] * 100)
                     if ml_result.get("reason"):
                         incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
-                except:
+                except Exception:
                     pass
                 
                 incidents.append(incident)

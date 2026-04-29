@@ -129,6 +129,10 @@ func runMonitorWebhook(cmd *cobra.Command, args []string) {
 				http.Error(w, "monitor shutting down", http.StatusServiceUnavailable)
 				return
 			}
+			if errors.Is(err, runtime.ErrBufferFull) {
+				http.Error(w, "server busy, retry later", http.StatusTooManyRequests)
+				return
+			}
 			http.Error(w, fmt.Sprintf("invalid event payload: %v", err), http.StatusBadRequest)
 			return
 		}
