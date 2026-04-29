@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KubeSentinel — Security Dashboard</title>
+  <meta name="description" content="Real-time Kubernetes security monitoring dashboard. View alerts, incidents, and anomaly detection results from KubeSentinel." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='80'>🛡️</text></svg>" />
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ── TopBar ── -->
+  <header class="topbar" id="topbar">
+    <a href="#" class="topbar-brand">
+      <svg class="topbar-logo" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="8" fill="#1e3a5f"/>
+        <path d="M16 5L26 10V17L16 27L6 17V10L16 5Z" fill="#0a0e1a" stroke="#3b82f6" stroke-width="1.2"/>
+        <circle cx="16" cy="15" r="4" fill="#3b82f6"/>
+        <circle cx="16" cy="14" r="1.5" fill="#0a0e1a"/>
+        <rect x="15" y="16" width="2" height="4" rx="0.5" fill="#0a0e1a"/>
+      </svg>
+      <span class="topbar-title">Kube<span>Sentinel</span></span>
+    </a>
+    <div class="topbar-status">
+      <div class="status-indicator" id="status-indicator">
+        <div class="status-dot connecting" id="status-dot"></div>
+        <span id="status-text">Connecting…</span>
+      </div>
+      <div class="refresh-indicator">
+        <div class="refresh-spinner hidden" id="refresh-spinner"></div>
+        <span id="refresh-text"></span>
+      </div>
+      <span class="topbar-time" id="topbar-time"></span>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Monitor</div>
+      <ul class="sidebar-nav">
+        <li>
+          <a class="sidebar-link active" data-view="incidents" onclick="switchView('incidents', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Incidents
+            <span class="sidebar-badge" id="sidebar-badge">0</span>
+          </a>
+        </li>
+        <li>
+          <a class="sidebar-link" data-view="overview" onclick="switchView('overview', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Overview
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">System</div>
+      <ul class="sidebar-nav">
+        <li>
+          <a class="sidebar-link" data-view="settings" onclick="switchView('settings', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            Settings
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-info">
+        KubeSentinel Dashboard<br>
+        <a href="https://github.com/Tarekazabou/kubesentinel" target="_blank">GitHub →</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ── -->
+  <main class="main-content" id="main-content">
+
+    <!-- Connection Banner -->
+    <div class="connection-banner hidden" id="connection-banner">
+      <span class="connection-banner-icon">⚠️</span>
+      <span class="connection-banner-text" id="banner-text">Cannot reach KubeSentinel API. Check your tunnel or API endpoint.</span>
+      <button class="btn btn-ghost" onclick="retryConnection()">Retry</button>
+    </div>
+
+    <!-- === INCIDENTS VIEW (default) === -->
+    <div id="view-incidents">
+      <div class="page-header">
+        <h1 class="page-title">Security Incidents</h1>
+        <div class="page-actions">
+          <button class="btn btn-ghost" onclick="fetchIncidents()" id="btn-refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card total">
+          <div class="stat-label">Total Incidents</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-sub" id="stat-last-update">Waiting for data</div>
+        </div>
+        <div class="stat-card critical">
+          <div class="stat-label">Critical</div>
+          <div class="stat-value" id="stat-critical">—</div>
+        </div>
+        <div class="stat-card high">
+          <div class="stat-label">High</div>
+          <div class="stat-value" id="stat-high">—</div>
+        </div>
+        <div class="stat-card medium">
+          <div class="stat-label">Medium / Low</div>
+          <div class="stat-value" id="stat-medlow">—</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar" id="filter-bar">
+        <button class="filter-chip active" data-filter="all" onclick="setFilter('all', this)">All</button>
+        <button class="filter-chip" data-filter="critical" onclick="setFilter('critical', this)">🔴 Critical</button>
+        <button class="filter-chip" data-filter="high" onclick="setFilter('high', this)">🟠 High</button>
+        <button class="filter-chip" data-filter="medium" onclick="setFilter('medium', this)">🟡 Medium</button>
+        <button class="filter-chip" data-filter="low" onclick="setFilter('low', this)">🟢 Low</button>
+        <input class="search-input" type="text" placeholder="Search incidents…" id="search-input" oninput="applyFilters()" />
+      </div>
+
+      <!-- Incident List -->
+      <div class="incident-list" id="incident-list">
+        <!-- Loading skeletons -->
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </div>
+    </div>
+
+    <!-- === OVERVIEW VIEW === -->
+    <div id="view-overview" style="display:none">
+      <div class="page-header">
+        <h1 class="page-title">System Overview</h1>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card total">
+          <div class="stat-label">AI Model Status</div>
+          <div class="stat-value" id="ov-model-status" style="font-size:1.25rem">—</div>
+        </div>
+        <div class="stat-card medium">
+          <div class="stat-label">Warmup Progress</div>
+          <div class="stat-value" id="ov-warmup">—</div>
+          <div class="stat-sub" id="ov-warmup-sub"></div>
+        </div>
+        <div class="stat-card high">
+          <div class="stat-label">Gemini Enrichment</div>
+          <div class="stat-value" id="ov-gemini" style="font-size:1.25rem">—</div>
+        </div>
+        <div class="stat-card critical">
+          <div class="stat-label">API Endpoint</div>
+          <div class="stat-value" id="ov-endpoint" style="font-size:0.75rem;word-break:break-all">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- === SETTINGS VIEW === -->
+    <div id="view-settings" style="display:none">
+      <div class="page-header">
+        <h1 class="page-title">Settings</h1>
+      </div>
+      <div class="settings-view">
+        <div class="setting-group">
+          <div class="setting-group-title">API Connection</div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>API Endpoint</h4>
+              <p>Your KubeSentinel Flask API URL (via Cloudflare Tunnel)</p>
+            </div>
+            <input class="setting-input" type="url" id="setting-endpoint" placeholder="https://kubesentinel.your-domain.com" />
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <h4>Auto-refresh interval</h4>
+              <p>How often to poll for new incidents (seconds)</p>
+            </div>
+            <input class="setting-input" type="number" id="setting-interval" min="5" max="300" value="15" style="width:100px" />
+          </div>
+          <div style="margin-top:12px">
+            <button class="btn btn-primary" onclick="saveSettings()">Save & Apply</button>
+            <button class="btn btn-ghost" onclick="testConnection()" style="margin-left:8px">Test Connection</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

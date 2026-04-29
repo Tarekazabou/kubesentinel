@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubesentinel
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesentinel
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubesentinel
+  template:
+    metadata:
+      labels:
+        app: kubesentinel
+    spec:
+      containers:
+        # Container 1: The Go Monitor (Listens to Falco, writes forensics)
+        - name: core-monitor
+          image: kubesentinel:latest
+          imagePullPolicy: IfNotPresent
+          command: 
+            - "/app/kubesentinel"
+            - "monitor-webhook"
+            - "--port"
+            - "8080"
+            - "--ai-endpoint"
+            - "http://localhost:5000"
+          ports:
+            - containerPort: 8080
+              name: webhook
+          volumeMounts:
+            - name: shared-forensics
+              mountPath: /app/forensics
+
+        # Container 2: The Python AI Server (Anomaly detection & API)
+        - name: ai-module
+          image: kubesentinel-ai:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ALLOW_UNAUTHENTICATED_API
+              value: "true" # Safe because it only accepts traffic from localhost inside the pod
+            # Set GEMINI_API_KEY here if you want enrichment
+            # - name: GEMINI_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: kubesentinel-secrets
+            #       key: gemini_api_key
+          ports:
+            - containerPort: 5000
+              name: ai-api
+          volumeMounts:
+            - name: shared-forensics
+              mountPath: /app/forensics
+
+      volumes:
+        # Shared volume: Go writes the incident JSONs here, Python reads them for the dashboard
+        - name: shared-forensics
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubesentinel-service
+  namespace: kubesentinel
+spec:
+  type: ClusterIP
+  selector:
+    app: kubesentinel
+  ports:
+    # Port for Falco/Falcosidekick to POST events to
+    - name: webhook
+      port: 8080
+      targetPort: 8080
+    # Port to expose the Python API to your Ingress/Cloudflare Tunnel
+    - name: ai-api
+      port: 5000
+      targetPort: 5000

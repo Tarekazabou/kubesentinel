@@ -29,14 +29,22 @@ from functools import wraps
 load_dotenv()
 
 app = Flask(__name__)
+_default_origins = ','.join([
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+])
 _cors_origins = [
     origin.strip()
-    for origin in os.getenv(
-        'CORS_ALLOWED_ORIGINS',
-        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5000,http://127.0.0.1:5000'
-    ).split(',')
+    for origin in os.getenv('CORS_ALLOWED_ORIGINS', _default_origins).split(',')
     if origin.strip()
 ]
+# When behind Cloudflare Tunnel, also accept any *.pages.dev or *.trycloudflare.com origin
+import re as _re
+_cors_origins.append(_re.compile(r'https://.*\.(pages\.dev|trycloudflare\.com)$'))
 CORS(app, origins=_cors_origins)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

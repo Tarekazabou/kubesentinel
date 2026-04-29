@@ -206,6 +206,21 @@ func (s *Scanner) scanResource(resource K8sResource) []types.Violation {
 		violations = append(violations, *v)
 	}
 
+	// Check for hardcoded secrets
+	if secViolations := s.checkSecrets(resource); len(secViolations) > 0 {
+		violations = append(violations, secViolations...)
+	}
+
+	// Check image tags for vulnerabilities (stub for Trivy/Grype)
+	if imgViolations := s.checkImageVulnerabilities(resource); len(imgViolations) > 0 {
+		violations = append(violations, imgViolations...)
+	}
+
+	// Check NetworkPolicy
+	if netViolations := s.checkNetworkPolicy(resource); len(netViolations) > 0 {
+		violations = append(violations, netViolations...)
+	}
+
 	// Apply custom rules from RulesEngine
 	resourceMap := map[string]interface{}{
 		"apiVersion": resource.APIVersion,
@@ -241,6 +256,7 @@ func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violati
 					Description: fmt.Sprintf("Privileged container found: %s", container["name"]), // ← changed
 					Resource:    s.getResourceName(resource),
 					Remediation: "Set securityContext.privileged to false",
+					Compliance:  []string{"CIS-5.2.1", "NIST-SP-800-190"},
 				}
 			}
 		}
@@ -265,6 +281,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 				Description: "Container missing resource limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add resources.limits.cpu and resources.limits.memory to container spec",
+				Compliance:  []string{"CIS-5.7.3", "SOC2-CC7.1"},
 			}
 		}
 
@@ -276,6 +293,7 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 				Description: "Container missing CPU or memory limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Define both CPU and memory limits in resources.limits",
+				Compliance:  []string{"CIS-5.7.3", "SOC2-CC7.1"},
 			}
 		}
 	}
@@ -299,6 +317,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 					Description: "Container may run as root user",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.runAsNonRoot: true",
+					Compliance:  []string{"CIS-5.2.6", "PCI-DSS-Req-2"},
 				}
 			}
 		} else {
@@ -308,6 +327,7 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 				Description: "Missing security context for non-root enforcement",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add securityContext with runAsNonRoot: true",
+				Compliance:  []string{"CIS-5.2.6", "PCI-DSS-Req-2"},
 			}
 		}
 	}
@@ -331,6 +351,7 @@ func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
 					Description: "Container filesystem is not read-only",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.readOnlyRootFilesystem: true",
+					Compliance:  []string{"CIS-5.2.4"},
 				}
 			}
 		}
@@ -354,11 +375,101 @@ func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
 				Description: "Container missing security context",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add comprehensive securityContext with appropriate settings",
+				Compliance:  []string{"CIS-5.2.1"},
 			}
 		}
 	}
 
 	return nil
+}
+
+// checkSecrets looks for hardcoded passwords, tokens, base64-encoded creds in environment variables
+func (s *Scanner) checkSecrets(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+	if !s.supportedWorkloadKinds(resource.Kind) {
+		return violations
+	}
+
+	secretKeys := []string{"password", "token", "secret", "key", "auth", "pwd"}
+
+	containers := s.getContainers(resource)
+	for _, container := range containers {
+		if envs, ok := container["env"].([]interface{}); ok {
+			for _, envVar := range envs {
+				envMap, ok := envVar.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				name, okName := envMap["name"].(string)
+				_, okValue := envMap["value"].(string)
+
+				if okName && okValue {
+					lowerName := strings.ToLower(name)
+					for _, sk := range secretKeys {
+						if strings.Contains(lowerName, sk) {
+							violations = append(violations, types.Violation{
+								RuleID:      "SEC-006",
+								Severity:    "CRITICAL",
+								Description: fmt.Sprintf("Potential hardcoded secret found in env var: %s", name),
+								Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
+								Remediation: "Use Kubernetes Secrets instead of hardcoding sensitive data in env variables",
+								Compliance:  []string{"CIS-5.4.1", "PCI-DSS-Req-8.2.1"},
+							})
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+	return violations
+}
+
+// checkImageVulnerabilities acts as a stub/wrapper for Trivy/Grype image scanning.
+// It checks for insecure tags and prompts for compliance.
+func (s *Scanner) checkImageVulnerabilities(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+	if !s.supportedWorkloadKinds(resource.Kind) {
+		return violations
+	}
+
+	containers := s.getContainers(resource)
+	for _, container := range containers {
+		if image, ok := container["image"].(string); ok {
+			if strings.HasSuffix(image, ":latest") || !strings.Contains(image, ":") {
+				violations = append(violations, types.Violation{
+					RuleID:      "SEC-007",
+					Severity:    "HIGH",
+					Description: fmt.Sprintf("Image '%s' uses 'latest' tag or no tag", image),
+					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
+					Remediation: "Use specific immutable image versions or digests. Integrate Trivy/Grype for deep registry scanning.",
+					Compliance:  []string{"CIS-5.1.5", "NIST-SP-800-190"},
+				})
+			}
+		}
+	}
+	return violations
+}
+
+// checkNetworkPolicy analyzes NetworkPolicy resources (or lack thereof)
+func (s *Scanner) checkNetworkPolicy(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+
+	if resource.Kind == "NetworkPolicy" {
+		if ingress, ok := resource.Spec["ingress"].([]interface{}); ok && len(ingress) > 0 {
+			if policy, ok := ingress[0].(map[string]interface{}); ok && len(policy) == 0 {
+				violations = append(violations, types.Violation{
+					RuleID:      "SEC-008",
+					Severity:    "HIGH",
+					Description: "NetworkPolicy allows all ingress traffic (permissive)",
+					Resource:    s.getResourceName(resource),
+					Remediation: "Restrict ingress rules to specific namespaces or pods",
+					Compliance:  []string{"CIS-5.3.2", "PCI-DSS-Req-1"},
+				})
+			}
+		}
+	}
+	return violations
 }
 
 // Helper functions

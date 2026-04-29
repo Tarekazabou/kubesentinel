@@ -8,6 +8,7 @@ type Violation struct {
 	Description string `json:"description"`
 	Remediation string `json:"remediation"`
 	Path        string `json:"path,omitempty"`
-	Resource    string `json:"resource,omitempty"`
-	LineNumber  int    `json:"line_number,omitempty"`
+	Resource    string   `json:"resource,omitempty"`
+	LineNumber  int      `json:"line_number,omitempty"`
+	Compliance  []string `json:"compliance,omitempty"`
 }

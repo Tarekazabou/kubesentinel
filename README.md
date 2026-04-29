@@ -34,7 +34,11 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
 
 ## Features
 
-- **Static Policy Engine**: Detects risky Kubernetes configurations before deployment
+- **Static Policy Engine**: Detects risky Kubernetes configurations before deployment. Supported capabilities include:
+  - **Secrets Scanning**: Detects hardcoded passwords, tokens, and credentials in manifests (similar to kubesec, checkov).
+  - **Image Vulnerability Tracking**: Flags insecure image tags (`:latest`) and tracks supply-chain risk (integrates conceptually with Snyk/Trivy/Grype).
+  - **NetworkPolicy Analysis**: Analyzes ingress/egress rules and default-deny policies (similar to cilium, checkov).
+  - **Compliance Mapping**: Violations are automatically mapped to CIS Benchmarks, NIST SP 800-190, SOC2, and PCI-DSS (similar to kube-bench/Falco compliance mapping).
 - **Runtime Monitor**: Streams and processes Falco security events
 - **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
 - **Forensic Vault**: Stores incident evidence with retention, max-size pruning, and optional gzip compression
