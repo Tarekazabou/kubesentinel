@@ -23,8 +23,9 @@ type EventProcessor struct {
 	normalBuffer     []ai.FeatureVector
 	bufferMu         sync.Mutex
 	wg               sync.WaitGroup
-	WarmupMinutes    int
+	warmupMinutes    int
 	warmupComplete   atomic.Bool
+	cancelLoops      context.CancelFunc
 }
 
 // ProcessorMetrics tracks processing statistics
@@ -112,25 +113,25 @@ func NewEventProcessor(workers int, aiClient *ai.Client, warmupMinutes int, vaul
 		AIClient:       aiClient,
 		Vault:          forensicVault,
 		normalBuffer:   make([]ai.FeatureVector, 0, 200),
-		WarmupMinutes:  warmupMinutes,
+		warmupMinutes:  warmupMinutes,
 		warmupComplete: atomic.Bool{}, // starts false
 	}
 
 	// === WARM-UP PHASE (one-shot) ===
-	if ep.WarmupMinutes > 0 {
+	if ep.warmupMinutes > 0 {
 		ep.wg.Add(1)
 		go func() {
 			defer ep.wg.Done()
-			fmt.Printf("[WARMUP] Starting %d-minute baseline collection phase...\n", ep.WarmupMinutes)
+			fmt.Printf("[WARMUP] Starting %d-minute baseline collection phase...\n", ep.warmupMinutes)
 
 			// One-shot timer for warm-up duration
-			timer := time.NewTimer(time.Duration(ep.WarmupMinutes) * time.Minute)
+			timer := time.NewTimer(time.Duration(ep.warmupMinutes) * time.Minute)
 			defer timer.Stop()
 
 			<-timer.C
 
 			ep.warmupComplete.Store(true)
-			fmt.Printf("[WARMUP] ✅ Warm-up complete after %d minutes. Anomaly detection now active.\n", ep.WarmupMinutes)
+			fmt.Printf("[WARMUP] ✅ Warm-up complete after %d minutes. Anomaly detection now active.\n", ep.warmupMinutes)
 
 			// Optional: force one immediate baseline update with any collected normal events
 			ep.TrainBaseline(context.Background())
@@ -139,27 +140,50 @@ func NewEventProcessor(workers int, aiClient *ai.Client, warmupMinutes int, vaul
 		ep.warmupComplete.Store(true) // no warm-up → immediately active
 	}
 
+	loopCtx, loopCancel := context.WithCancel(context.Background())
+	ep.cancelLoops = loopCancel
+
 	// === AUTO TRAINING TICKER (runs after warm-up) ===
+	ep.wg.Add(1)
 	go func() {
+		defer ep.wg.Done()
 		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			if ep.warmupComplete.Load() {
-				ep.TrainBaseline(context.Background())
+		for {
+			select {
+			case <-loopCtx.Done():
+				return
+			case <-ticker.C:
+				if ep.warmupComplete.Load() {
+					ep.TrainBaseline(loopCtx)
+				}
 			}
 		}
 	}()
 
 	// Sliding window (you already had this)
+	ep.wg.Add(1)
 	go func() {
+		defer ep.wg.Done()
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			ep.FeatureExtractor.resetWindow()
+		for {
+			select {
+			case <-loopCtx.Done():
+				return
+			case <-ticker.C:
+				ep.FeatureExtractor.resetWindow()
+			}
 		}
 	}()
 
 	return ep
+}
+
+func (ep *EventProcessor) Stop() {
+	if ep.cancelLoops != nil {
+		ep.cancelLoops()
+	}
 }
 
 // Start begins processing events with worker goroutines
@@ -179,6 +203,7 @@ func (ep *EventProcessor) Start(ctx context.Context, eventChan <-chan SecurityEv
 		fmt.Println("All event processors stopped")
 	}()
 }
+
 func (ep *EventProcessor) Wait() {
 	ep.wg.Wait()
 }
@@ -214,15 +239,7 @@ func (ep *EventProcessor) worker(ctx context.Context, id int, eventChan <-chan S
 	}
 }
 func (fe *FeatureExtractor) ExtractFeatures(event SecurityEvent) BehavioralFeatures {
-	features := BehavioralFeatures{
-		SyscallCount: make(map[string]int),
-	}
-	fmt.Printf("Debug: Event Fields: %v\n", event.Fields)
-	if event.Fields != nil {
-
-	}
-
-	return features
+	return fe.Extract(event)
 }
 
 func (ep *EventProcessor) toAIFeatureVector(features BehavioralFeatures, event SecurityEvent) ai.FeatureVector {
@@ -241,11 +258,7 @@ func (ep *EventProcessor) toAIFeatureVector(features BehavioralFeatures, event S
 	}
 }
 func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event SecurityEvent) float64 {
-	fmt.Printf("[DEBUG-AI] Entering AI scoring for process=%s file_access=%d sensitive=%d\n",
-		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
-
 	if ep.AIClient == nil {
-		fmt.Println("[DEBUG-AI] AIClient is nil → using fallback")
 		return ep.calculateRisk(event, features)
 	}
 
@@ -265,10 +278,6 @@ func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event Secu
 	// Record success metrics
 	atomic.AddInt64(&ep.Metrics.AICalls, 1)
 
-	// This is the log you've been looking for!
-	fmt.Printf("[AI PREDICTION] score=%.3f | is_anomaly=%v | process=%s | reason=%s\n",
-		resp.Score, resp.IsAnomaly, features.ProcessName, resp.Reason)
-
 	return resp.Score
 }
 
@@ -276,19 +285,15 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 	// Note: Removed atomic.AddInt64 here because worker() already does it.
 
 	features := ep.FeatureExtractor.Extract(event)
-	fmt.Printf("[PROC] Extracted features for %s | file_access=%d | sensitive=%d\n",
-		features.ProcessName, features.FileAccessCount, len(features.SensitiveFiles))
 	if !ep.warmupComplete.Load() {
-		// Treat as normal during warm-up and feed to baseline immediately
+		// During warm-up, treat all events as normal and buffer feature vectors.
+		// The AutoTrain goroutine will call TrainBaseline when the timer fires.
 		aiVec := ep.toAIFeatureVector(features, event)
 		ep.bufferMu.Lock()
 		if len(ep.normalBuffer) < 200 {
 			ep.normalBuffer = append(ep.normalBuffer, aiVec)
 		}
 		ep.bufferMu.Unlock()
-
-		// Optional: push directly to AI baseline
-		_ = ep.AIClient.UpdateBaseline(context.Background(), []ai.FeatureVector{aiVec})
 
 		return ProcessedEvent{
 			Original:  event,
@@ -354,32 +359,6 @@ func (p *EventProcessor) calculateRisk(event SecurityEvent, features BehavioralF
 	return score
 }
 
-// isKnownThreat checks for known threat patterns
-func (ep *EventProcessor) isKnownThreat(event SecurityEvent) bool {
-	// Check for critical priority events
-	if event.Priority == "Critical" || event.Priority == "Emergency" {
-		return true
-	}
-
-	// Check for specific threat patterns
-	knownThreats := []string{
-		"Terminal shell in container",
-		"Modify binary dirs",
-		"Write below etc",
-		"Sensitive file opened for reading",
-		"Netcat Remote Code Execution",
-		"Launch Suspicious Network Tool",
-	}
-
-	for _, threat := range knownThreats {
-		if event.Rule == threat {
-			return true
-		}
-	}
-
-	return false
-}
-
 // storeForensicData stores forensic information for anomalous events
 func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	if ep.Vault == nil {
@@ -391,9 +370,6 @@ func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 	}
 
 	record := buildForensicRecord(event.Original, event.Features, event.RiskScore, event.Timestamp)
-	fmt.Printf("[GEMINI DEBUG] Client enabled=%v | ClassifyRuntime=%v\n",
-		ep.GeminiClient != nil && ep.GeminiClient.Enabled(),
-		ep.GeminiClient != nil)
 	if ep.GeminiClient != nil && ep.GeminiClient.Enabled() {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		classification, err := ep.GeminiClient.ClassifyRecord(ctx, record)
@@ -420,13 +396,14 @@ func (ep *EventProcessor) storeForensicData(event ProcessedEvent) error {
 
 // GetMetrics returns current processor metrics
 func (ep *EventProcessor) GetMetrics() ProcessorMetrics {
-	return ProcessorMetrics{
+	metrics := ProcessorMetrics{
 		TotalEvents:       atomic.LoadInt64(&ep.Metrics.TotalEvents),
 		ProcessedEvents:   atomic.LoadInt64(&ep.Metrics.ProcessedEvents),
 		AnomaliesDetected: atomic.LoadInt64(&ep.Metrics.AnomaliesDetected),
 		ErrorCount:        atomic.LoadInt64(&ep.Metrics.ErrorCount),
-		AICalls:           atomic.LoadInt64(&ep.Metrics.AICalls), // ← ADD THIS
+		AICalls:           atomic.LoadInt64(&ep.Metrics.AICalls),
 	}
+	return metrics
 }
 
 // FeatureExtractor extracts behavioral features from events
@@ -603,7 +580,7 @@ func isSensitiveFile(path string) bool {
 	}
 
 	for _, pattern := range sensitivePatterns {
-		if contains(path, pattern) {
+		if strings.Contains(path, pattern) {
 			return true
 		}
 	}

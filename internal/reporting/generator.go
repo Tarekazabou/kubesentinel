@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -260,7 +259,7 @@ func (g *Generator) generateMarkdown(report Report) error {
 
 	path := filepath.Join(g.Config.OutputPath, filename)
 
-	if err := ioutil.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
 		return fmt.Errorf("failed to write markdown report: %w", err)
 	}
 
@@ -279,7 +278,7 @@ func (g *Generator) generateJSON(report Report) error {
 		report.ID,
 		report.GeneratedAt.Format("20060102_150405"))
 	path := filepath.Join(g.Config.OutputPath, filename)
-	if err := ioutil.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write json report: %w", err)
 	}
 

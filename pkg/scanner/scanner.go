@@ -2,7 +2,6 @@ package scanner
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,12 +56,14 @@ func NewScanner(config *ScanConfig) (*Scanner, error) {
 // supportedWorkloadKinds checks if a resource kind has container specs
 func (s *Scanner) supportedWorkloadKinds(kind string) bool {
 	supported := map[string]bool{
-		"Pod":         true,
-		"Deployment":  true,
-		"DaemonSet":   true,
-		"StatefulSet": true,
-		"Job":         true,
-		"CronJob":     true,
+		"Pod":                   true,
+		"Deployment":            true,
+		"DaemonSet":             true,
+		"StatefulSet":           true,
+		"Job":                   true,
+		"CronJob":               true,
+		"ReplicaSet":            true,
+		"ReplicationController": true,
 	}
 	return supported[kind]
 }
@@ -105,7 +106,7 @@ func (s *Scanner) ScanFile(filePath string) (ScanResult, error) {
 	}
 
 	// 1. Read file content
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return result, fmt.Errorf("failed to read manifest %s: %w", filePath, err)
 	}
@@ -205,6 +206,21 @@ func (s *Scanner) scanResource(resource K8sResource) []types.Violation {
 		violations = append(violations, *v)
 	}
 
+	// Check for hardcoded secrets
+	if secViolations := s.checkSecrets(resource); len(secViolations) > 0 {
+		violations = append(violations, secViolations...)
+	}
+
+	// Check image tags for vulnerabilities (stub for Trivy/Grype)
+	if imgViolations := s.checkImageVulnerabilities(resource); len(imgViolations) > 0 {
+		violations = append(violations, imgViolations...)
+	}
+
+	// Check NetworkPolicy
+	if netViolations := s.checkNetworkPolicy(resource); len(netViolations) > 0 {
+		violations = append(violations, netViolations...)
+	}
+
 	// Apply custom rules from RulesEngine
 	resourceMap := map[string]interface{}{
 		"apiVersion": resource.APIVersion,
@@ -236,10 +252,11 @@ func (s *Scanner) checkPrivilegedContainers(resource K8sResource) *types.Violati
 			if privileged, ok := securityContext["privileged"].(bool); ok && privileged {
 				return &types.Violation{
 					RuleID:      "KS-PRIV-001",
-					Severity:    "critical",
+					Severity:    "CRITICAL",
 					Description: fmt.Sprintf("Privileged container found: %s", container["name"]), // ← changed
 					Resource:    s.getResourceName(resource),
 					Remediation: "Set securityContext.privileged to false",
+					Compliance:  []string{"CIS-5.2.1", "NIST-SP-800-190"},
 				}
 			}
 		}
@@ -260,10 +277,11 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 		if !ok {
 			return &types.Violation{
 				RuleID:      "SEC-002",
-				Severity:    "high",
+				Severity:    "HIGH",
 				Description: "Container missing resource limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add resources.limits.cpu and resources.limits.memory to container spec",
+				Compliance:  []string{"CIS-5.7.3", "SOC2-CC7.1"},
 			}
 		}
 
@@ -271,10 +289,11 @@ func (s *Scanner) checkResourceLimits(resource K8sResource) *types.Violation {
 		if !ok || limits["cpu"] == nil || limits["memory"] == nil {
 			return &types.Violation{
 				RuleID:      "SEC-002",
-				Severity:    "high",
+				Severity:    "HIGH",
 				Description: "Container missing CPU or memory limits",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Define both CPU and memory limits in resources.limits",
+				Compliance:  []string{"CIS-5.7.3", "SOC2-CC7.1"},
 			}
 		}
 	}
@@ -294,19 +313,21 @@ func (s *Scanner) checkNonRootUser(resource K8sResource) *types.Violation {
 			if runAsNonRoot, ok := securityContext["runAsNonRoot"].(bool); !ok || !runAsNonRoot {
 				return &types.Violation{
 					RuleID:      "SEC-003",
-					Severity:    "medium",
+					Severity:    "MEDIUM",
 					Description: "Container may run as root user",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.runAsNonRoot: true",
+					Compliance:  []string{"CIS-5.2.6", "PCI-DSS-Req-2"},
 				}
 			}
 		} else {
 			return &types.Violation{
 				RuleID:      "SEC-003",
-				Severity:    "medium",
+				Severity:    "MEDIUM",
 				Description: "Missing security context for non-root enforcement",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add securityContext with runAsNonRoot: true",
+				Compliance:  []string{"CIS-5.2.6", "PCI-DSS-Req-2"},
 			}
 		}
 	}
@@ -326,10 +347,11 @@ func (s *Scanner) checkReadOnlyRootFS(resource K8sResource) *types.Violation {
 			if readOnlyRootFS, ok := securityContext["readOnlyRootFilesystem"].(bool); !ok || !readOnlyRootFS {
 				return &types.Violation{
 					RuleID:      "SEC-004",
-					Severity:    "medium",
+					Severity:    "MEDIUM",
 					Description: "Container filesystem is not read-only",
 					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 					Remediation: "Set securityContext.readOnlyRootFilesystem: true",
+					Compliance:  []string{"CIS-5.2.4"},
 				}
 			}
 		}
@@ -349,15 +371,105 @@ func (s *Scanner) checkSecurityContext(resource K8sResource) *types.Violation {
 		if _, ok := container["securityContext"]; !ok {
 			return &types.Violation{
 				RuleID:      "SEC-005",
-				Severity:    "low",
+				Severity:    "LOW",
 				Description: "Container missing security context",
 				Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
 				Remediation: "Add comprehensive securityContext with appropriate settings",
+				Compliance:  []string{"CIS-5.2.1"},
 			}
 		}
 	}
 
 	return nil
+}
+
+// checkSecrets looks for hardcoded passwords, tokens, base64-encoded creds in environment variables
+func (s *Scanner) checkSecrets(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+	if !s.supportedWorkloadKinds(resource.Kind) {
+		return violations
+	}
+
+	secretKeys := []string{"password", "token", "secret", "key", "auth", "pwd"}
+
+	containers := s.getContainers(resource)
+	for _, container := range containers {
+		if envs, ok := container["env"].([]interface{}); ok {
+			for _, envVar := range envs {
+				envMap, ok := envVar.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				name, okName := envMap["name"].(string)
+				_, okValue := envMap["value"].(string)
+
+				if okName && okValue {
+					lowerName := strings.ToLower(name)
+					for _, sk := range secretKeys {
+						if strings.Contains(lowerName, sk) {
+							violations = append(violations, types.Violation{
+								RuleID:      "SEC-006",
+								Severity:    "CRITICAL",
+								Description: fmt.Sprintf("Potential hardcoded secret found in env var: %s", name),
+								Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
+								Remediation: "Use Kubernetes Secrets instead of hardcoding sensitive data in env variables",
+								Compliance:  []string{"CIS-5.4.1", "PCI-DSS-Req-8.2.1"},
+							})
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+	return violations
+}
+
+// checkImageVulnerabilities acts as a stub/wrapper for Trivy/Grype image scanning.
+// It checks for insecure tags and prompts for compliance.
+func (s *Scanner) checkImageVulnerabilities(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+	if !s.supportedWorkloadKinds(resource.Kind) {
+		return violations
+	}
+
+	containers := s.getContainers(resource)
+	for _, container := range containers {
+		if image, ok := container["image"].(string); ok {
+			if strings.HasSuffix(image, ":latest") || !strings.Contains(image, ":") {
+				violations = append(violations, types.Violation{
+					RuleID:      "SEC-007",
+					Severity:    "HIGH",
+					Description: fmt.Sprintf("Image '%s' uses 'latest' tag or no tag", image),
+					Resource:    fmt.Sprintf("%s/%s", resource.Kind, s.getResourceName(resource)),
+					Remediation: "Use specific immutable image versions or digests. Integrate Trivy/Grype for deep registry scanning.",
+					Compliance:  []string{"CIS-5.1.5", "NIST-SP-800-190"},
+				})
+			}
+		}
+	}
+	return violations
+}
+
+// checkNetworkPolicy analyzes NetworkPolicy resources (or lack thereof)
+func (s *Scanner) checkNetworkPolicy(resource K8sResource) []types.Violation {
+	var violations []types.Violation
+
+	if resource.Kind == "NetworkPolicy" {
+		if ingress, ok := resource.Spec["ingress"].([]interface{}); ok && len(ingress) > 0 {
+			if policy, ok := ingress[0].(map[string]interface{}); ok && len(policy) == 0 {
+				violations = append(violations, types.Violation{
+					RuleID:      "SEC-008",
+					Severity:    "HIGH",
+					Description: "NetworkPolicy allows all ingress traffic (permissive)",
+					Resource:    s.getResourceName(resource),
+					Remediation: "Restrict ingress rules to specific namespaces or pods",
+					Compliance:  []string{"CIS-5.3.2", "PCI-DSS-Req-1"},
+				})
+			}
+		}
+	}
+	return violations
 }
 
 // Helper functions
@@ -388,9 +500,12 @@ func (s *Scanner) parseYAML(content []byte) ([]K8sResource, error) {
 func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 	containers := []map[string]interface{}{}
 
-	// Handle Pod
-	if resource.Kind == "Pod" {
-		if containersList, ok := resource.Spec["containers"].([]interface{}); ok {
+	appendContainers := func(spec map[string]interface{}) {
+		for _, key := range []string{"containers", "initContainers", "ephemeralContainers"} {
+			containersList, ok := spec[key].([]interface{})
+			if !ok {
+				continue
+			}
 			for _, c := range containersList {
 				if container, ok := c.(map[string]interface{}); ok {
 					containers = append(containers, container)
@@ -399,18 +514,28 @@ func (s *Scanner) getContainers(resource K8sResource) []map[string]interface{} {
 		}
 	}
 
-	// Handle Deployment
-	if resource.Kind == "Deployment" {
-		if template, ok := resource.Spec["template"].(map[string]interface{}); ok {
-			if spec, ok := template["spec"].(map[string]interface{}); ok {
-				if containersList, ok := spec["containers"].([]interface{}); ok {
-					for _, c := range containersList {
-						if container, ok := c.(map[string]interface{}); ok {
-							containers = append(containers, container)
-						}
-					}
-				}
+	getNestedSpec := func(root map[string]interface{}, path ...string) map[string]interface{} {
+		current := root
+		for _, key := range path {
+			next, ok := current[key].(map[string]interface{})
+			if !ok {
+				return nil
 			}
+			current = next
+		}
+		return current
+	}
+
+	switch resource.Kind {
+	case "Pod":
+		appendContainers(resource.Spec)
+	case "Deployment", "DaemonSet", "StatefulSet", "Job", "ReplicaSet", "ReplicationController":
+		if spec := getNestedSpec(resource.Spec, "template", "spec"); spec != nil {
+			appendContainers(spec)
+		}
+	case "CronJob":
+		if spec := getNestedSpec(resource.Spec, "jobTemplate", "spec", "template", "spec"); spec != nil {
+			appendContainers(spec)
 		}
 	}
 

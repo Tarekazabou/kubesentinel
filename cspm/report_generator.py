@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import List, Dict
 from datetime import datetime
 
+from cspm.manifest_contract import normalize_finding
+
 
 class ReportGenerator:
     """Generate reports from manifest scan findings."""
     
     def __init__(self, findings: List[Dict]):
-        self.findings = findings
+        self.findings = [normalize_finding(finding) for finding in findings]
         self.severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
     
     def generate_json(self, output_path: str):
@@ -316,7 +318,7 @@ class ReportGenerator:
         """Count findings by severity."""
         summary = {'total': len(self.findings), 'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
         for finding in self.findings:
-            severity = finding.get('severity', 'UNKNOWN')
+            severity = str(finding.get('severity_level') or finding.get('severity', 'UNKNOWN')).upper()
             if severity in summary:
                 summary[severity] += 1
         return summary

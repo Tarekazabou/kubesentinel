@@ -2,8 +2,8 @@ package rules
 
 import (
 	"fmt"
-	"io/ioutil"
 	"kubesentinel/pkg/types"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -31,42 +31,6 @@ type RulesEngine struct {
 	Rules []Rule
 }
 
-func (e *RulesEngine) LoadRules(path string) error {
-	// Load built-in rules first (fixed path)
-	builtInPath := "./config/rules/build-in-rules.yaml"
-	builtInData, err := ioutil.ReadFile(builtInPath)
-	if err != nil {
-		fmt.Printf("Warning: Built-in rules file not found at %s: %v\n", builtInPath, err)
-	} else {
-		var builtInRules []Rule
-		if err := yaml.Unmarshal(builtInData, &builtInRules); err != nil {
-			return fmt.Errorf("failed to unmarshal built-in rules: %w", err)
-		}
-		e.Rules = append(e.Rules, builtInRules...)
-	}
-
-	// Load custom rules from the provided directory (existing code, assuming it loops over files)
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return fmt.Errorf("failed to read rules directory: %w", err)
-	}
-
-	for _, file := range files {
-		if filepath.Ext(file.Name()) == ".yaml" || filepath.Ext(file.Name()) == ".yml" {
-			data, err := ioutil.ReadFile(filepath.Join(path, file.Name()))
-			if err != nil {
-				return fmt.Errorf("failed to read rule file %s: %w", file.Name(), err)
-			}
-			var rules []Rule
-			if err := yaml.Unmarshal(data, &rules); err != nil {
-				return fmt.Errorf("failed to unmarshal rule file %s: %w", file.Name(), err)
-			}
-			e.Rules = append(e.Rules, rules...)
-		}
-	}
-
-	return nil
-}
 func getValueAtPath(data map[string]interface{}, path string) interface{} {
 	parts := strings.Split(path, ".")
 	current := interface{}(data)
@@ -97,33 +61,46 @@ func getValueAtPath(data map[string]interface{}, path string) interface{} {
 }
 func (e *RulesEngine) ListRules() []Rule { return e.Rules }
 func NewRulesEngine(rulesDir string) (*RulesEngine, error) {
-	var allRules []Rule
+	engine := &RulesEngine{}
 
-	files, err := ioutil.ReadDir(rulesDir)
-	if err != nil {
+	if err := engine.LoadRules(rulesDir); err != nil {
 		return nil, err
 	}
 
+	return engine, nil
+}
+
+// LoadRules reads all YAML rule files from the given directory and replaces
+// the current rule set. It is called by NewRulesEngine and can be called
+// again at runtime to hot-reload rules.
+func (e *RulesEngine) LoadRules(rulesDir string) error {
+	files, err := os.ReadDir(rulesDir)
+	if err != nil {
+		return err
+	}
+
+	var allRules []Rule
 	for _, file := range files {
 		if file.IsDir() || !isYamlFile(file.Name()) {
 			continue
 		}
 
 		path := filepath.Join(rulesDir, file.Name())
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", path, err)
+			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
 
 		var rules []Rule
 		if err := yaml.Unmarshal(data, &rules); err != nil {
-			return nil, fmt.Errorf("invalid yaml in %s: %w", path, err)
+			return fmt.Errorf("invalid yaml in %s: %w", path, err)
 		}
 
 		allRules = append(allRules, rules...)
 	}
 
-	return &RulesEngine{Rules: allRules}, nil
+	e.Rules = allRules
+	return nil
 }
 
 func (e *RulesEngine) Apply(resource map[string]interface{}) []types.Violation {
@@ -221,7 +198,13 @@ func violatesCheck(resource map[string]interface{}, check Check) bool {
 
 	// If path doesn't exist → depends on operator
 	if actualValue == nil {
-		return check.Operator == "exists" || check.Operator == "notExists" && false
+		if check.Operator == "exists" {
+			return false // path doesn't exist → "exists" check is not violated
+		}
+		if check.Operator == "notExists" {
+			return true // path doesn't exist → "notExists" check IS violated (condition met)
+		}
+		return false
 	}
 
 	switch check.Operator {

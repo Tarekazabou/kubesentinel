@@ -137,7 +137,8 @@ kubesentinel/
 - **`ai-module/`** - Flask-based ML service
   - Runs on port 5000
   - Exposes `/predict` (anomaly detection), `/train` (model update)
-  - Protected endpoints via Bearer token authentication
+  - Protected endpoints via Bearer token authentication (`TRAINING_API_TOKEN` required by default)
+  - Optional local-demo bypass via `ALLOW_UNAUTHENTICATED_API=true`
   - Includes Prometheus `/metrics` endpoint
 
 - **`cspm/`** - Static manifest scanning

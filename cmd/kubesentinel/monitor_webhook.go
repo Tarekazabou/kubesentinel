@@ -106,9 +106,15 @@ func runMonitorWebhook(cmd *cobra.Command, args []string) {
 			return
 		}
 
+		// Guard against excessively large payloads (DoS protection).
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MiB
 		defer r.Body.Close()
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			if err.Error() == "http: request body too large" {
+				http.Error(w, "request body too large (max 1 MiB)", http.StatusRequestEntityTooLarge)
+				return
+			}
 			http.Error(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
@@ -121,6 +127,10 @@ func runMonitorWebhook(cmd *cobra.Command, args []string) {
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, runtime.ErrEventChannelClosed) {
 				http.Error(w, "monitor shutting down", http.StatusServiceUnavailable)
+				return
+			}
+			if errors.Is(err, runtime.ErrBufferFull) {
+				http.Error(w, "server busy, retry later", http.StatusTooManyRequests)
 				return
 			}
 			http.Error(w, fmt.Sprintf("invalid event payload: %v", err), http.StatusBadRequest)

@@ -417,15 +417,16 @@ spec:
                   optional: true
           
           securityContext:
-            runAsNonRoot: false
-            runAsUser: 0
+            runAsNonRoot: true
+            runAsUser: 65534    # nobody — least-privilege for a monitoring agent
+            runAsGroup: 65534
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
-              add:
-                - NET_RAW
           
           resources:
             requests:
@@ -453,27 +454,27 @@ spec:
             - name: run
               mountPath: /run/kubesentinel
 
-          # Liveness probe
+          # Liveness probe — check the metrics/health HTTP endpoint
           livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - test -p /run/falco/falco.pipe || exit 0  # Exit 0 if pipe doesn't exist yet
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 60
             timeoutSeconds: 5
             failureThreshold: 3
           
-          # Readiness probe
+          # Readiness probe — only mark ready once the health endpoint responds
           readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - "true"  # Simple readiness - always ready once started
+            httpGet:
+              path: /health
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 2
 
       volumes:
         # Mount Falco socket from the host
@@ -573,6 +574,18 @@ spec:
               cpu: 1000m
               memory: 1Gi
           
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # gunicorn writes temp files
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+          
           # Liveness probe
           livenessProbe:
             httpGet:
@@ -621,12 +634,13 @@ metadata:
     app: kubesentinel-ai
     version: v1
 spec:
-  type: NodePort
+  # ClusterIP keeps the AI service internal-only.
+  # Expose externally via an Ingress or kubectl port-forward during development.
+  type: ClusterIP
   ports:
     - name: http
       port: 5000
       targetPort: 5000
-      nodePort: 30500
       protocol: TCP
   selector:
     app: kubesentinel-ai
