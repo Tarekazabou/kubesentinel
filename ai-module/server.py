@@ -28,7 +28,12 @@ from functools import wraps
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__)
+# Configure Flask to serve static files from dashboard directory
+dashboard_dir = Path(__file__).parent / "dashboard"
+app = Flask(__name__, 
+            static_folder=str(dashboard_dir),
+            static_url_path='/static')
+
 _default_origins = ','.join([
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -402,6 +407,16 @@ except Exception as e:
 def index():
     return send_from_directory('dashboard', 'index.html')
 
+@app.route('/<path:filename>')
+def serve_static(filename):
+    """Serve static files from dashboard directory"""
+    try:
+        return send_from_directory('dashboard', filename)
+    except Exception as e:
+        logger.warning(f"Static file not found: {filename}")
+        # Return index.html as fallback (SPA support)
+        return send_from_directory('dashboard', 'index.html')
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -409,6 +424,34 @@ def health_check():
         'status': 'healthy',
         'model_loaded': detector.model is not None
     })
+
+@app.route('/api/diagnostics', methods=['GET'])
+def diagnostics():
+    """Diagnostic endpoint to help debug deployment issues"""
+    import os
+    forensics_paths = [
+        Path("/app/forensics"),
+        Path(__file__).parent.parent / "forensics"
+    ]
+    
+    forensics_info = []
+    for path in forensics_paths:
+        forensics_info.append({
+            "path": str(path),
+            "exists": path.exists(),
+            "files": len(list(path.glob("*.json"))) if path.exists() else 0
+        })
+    
+    return jsonify({
+        "dashboard_dir": str(Path(__file__).parent / "dashboard"),
+        "dashboard_exists": (Path(__file__).parent / "dashboard").exists(),
+        "forensics_paths": forensics_info,
+        "cwd": os.getcwd(),
+        "env_cors": os.getenv('CORS_ALLOWED_ORIGINS', 'Not set'),
+        "gemini_enabled": ENRICH_WITH_GEMINI,
+        "model_loaded": detector.model is not None
+    })
+
 @app.route('/warmup/status', methods=['GET'])
 def warmup_status():
     with detector_lock:
@@ -496,14 +539,28 @@ def get_ai_incidents():
     try:
         # Prefer mounted runtime forensics path in container, fallback to repo path for local dev.
         forensics_dir = Path("/app/forensics")
+        
+        logger.info(f"Checking for forensics at: {forensics_dir} (exists: {forensics_dir.exists()})")
+        
         if not forensics_dir.exists():
             forensics_dir = Path(__file__).parent.parent / "forensics"
+            logger.info(f"Fallback to: {forensics_dir} (exists: {forensics_dir.exists()})")
+        
         if not forensics_dir.exists():
-            return jsonify({"incidents": [], "error": "forensics folder not found", "last_analysis": datetime.now().isoformat()})
+            error_msg = f"Forensics folder not found at {forensics_dir}"
+            logger.error(error_msg)
+            return jsonify({
+                "incidents": [], 
+                "error": error_msg, 
+                "last_analysis": datetime.now().isoformat(),
+                "forensics_path_checked": str(forensics_dir)
+            })
 
         incidents = []
+        json_files = sorted(glob.glob(str(forensics_dir / "*.json")), reverse=True)[:100]
+        logger.info(f"Found {len(json_files)} incident JSON files in {forensics_dir}")
         
-        for json_file in sorted(glob.glob(str(forensics_dir / "*.json")), reverse=True)[:100]:  # limit to latest 100
+        for json_file in json_files:
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)

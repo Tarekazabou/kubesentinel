@@ -1,0 +1,92 @@
+﻿Using config file: C:\Users\Tarek\Music\kubesentinel\kubesentinel\config.yaml
+Scanning manifests at: tests/user_manifest.yaml
+Using rules from: ./config/rules
+Minimum severity threshold: medium
+[
+  {
+    "file_path": "tests/user_manifest.yaml",
+    "violations": [
+      {
+        "rule_id": "SEC-002",
+        "severity": "HIGH",
+        "description": "Container missing resource limits",
+        "remediation": "Add resources.limits.cpu and resources.limits.memory to container spec",
+        "resource": "Pod/risky-app",
+        "compliance": [
+          "CIS-5.7.3",
+          "SOC2-CC7.1"
+        ]
+      },
+      {
+        "rule_id": "SEC-003",
+        "severity": "MEDIUM",
+        "description": "Missing security context for non-root enforcement",
+        "remediation": "Add securityContext with runAsNonRoot: true",
+        "resource": "Pod/risky-app",
+        "compliance": [
+          "CIS-5.2.6",
+          "PCI-DSS-Req-2"
+        ]
+      },
+      {
+        "rule_id": "SEC-006",
+        "severity": "CRITICAL",
+        "description": "Potential hardcoded secret found in env var: DB_PASSWORD",
+        "remediation": "Use Kubernetes Secrets instead of hardcoding sensitive data in env variables",
+        "resource": "Pod/risky-app",
+        "compliance": [
+          "CIS-5.4.1",
+          "PCI-DSS-Req-8.2.1"
+        ]
+      },
+      {
+        "rule_id": "SEC-006",
+        "severity": "CRITICAL",
+        "description": "Potential hardcoded secret found in env var: API_TOKEN",
+        "remediation": "Use Kubernetes Secrets instead of hardcoding sensitive data in env variables",
+        "resource": "Pod/risky-app",
+        "compliance": [
+          "CIS-5.4.1",
+          "PCI-DSS-Req-8.2.1"
+        ]
+      },
+      {
+        "rule_id": "SEC-007",
+        "severity": "HIGH",
+        "description": "Image 'myapp:latest' uses 'latest' tag or no tag",
+        "remediation": "Use specific immutable image versions or digests. Integrate Trivy/Grype for deep registry scanning.",
+        "resource": "Pod/risky-app",
+        "compliance": [
+          "CIS-5.1.5",
+          "NIST-SP-800-190"
+        ]
+      },
+      {
+        "rule_id": "SEC-008",
+        "severity": "HIGH",
+        "description": "NetworkPolicy allows all ingress traffic (permissive)",
+        "remediation": "Restrict ingress rules to specific namespaces or pods",
+        "path": "--- document 2 --- ",
+        "resource": "NetworkPolicy/permissive-policy",
+        "compliance": [
+          "CIS-5.3.2",
+          "PCI-DSS-Req-1"
+        ]
+      }
+    ],
+    "metadata": {
+      "kind": "Pod",
+      "name": "risky-app"
+    },
+    "passed": false
+  }
+]
+Violations in tests/user_manifest.yaml:
+  - SEC-002: Container missing resource limits
+  - SEC-003: Missing security context for non-root enforcement
+  - SEC-006: Potential hardcoded secret found in env var: DB_PASSWORD
+  - SEC-006: Potential hardcoded secret found in env var: API_TOKEN
+  - SEC-007: Image 'myapp:latest' uses 'latest' tag or no tag
+  - SEC-008: NetworkPolicy allows all ingress traffic (permissive)
+
+ÔØî Scan completed with violations found!
