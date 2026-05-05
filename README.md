@@ -132,6 +132,17 @@ Runtime monitor example:
 ./bin/kubesentinel monitor --namespace production --deployment api
 ```
 
+### Host volume setup (Kubernetes)
+
+Ensure the host path used by the deployments exists before applying manifests. Create the forensics directory and parent data directory on the host:
+
+```bash
+sudo mkdir -p /var/lib/kubesentinel/forensics
+sudo chown 1000:1000 /var/lib/kubesentinel /var/lib/kubesentinel/forensics
+```
+
+When running in Kubernetes, mount `/var/lib/kubesentinel` (or a PV) into the pods so the AI service can read `/app/forensics` and persist `staging.db` at `/var/lib/kubesentinel/staging.db`.
+
 ### Test
 
 ```bash

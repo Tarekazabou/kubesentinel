@@ -2,7 +2,15 @@ import os
 import sqlite3
 import threading
 
-DB_PATH = os.environ.get("STAGING_DB_PATH", "/app/staging.db")
+# Default runtime directory for persistent data on the host
+DB_DIR = "/var/lib/kubesentinel"
+os.makedirs(DB_DIR, exist_ok=True)
+
+DB_PATH = os.environ.get(
+    "STAGING_DB_PATH",
+    os.path.join(DB_DIR, "staging.db")
+)
+
 _local = threading.local()
 
 

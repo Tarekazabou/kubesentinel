@@ -27,7 +27,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - chown -R 65534:65534 /app/forensics /app/staging.db || true
+            - chown -R 65534:65534 /app/forensics /var/lib/kubesentinel/staging.db || true
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -35,9 +35,8 @@ spec:
           volumeMounts:
             - name: forensics
               mountPath: /app/forensics
-            - name: staging-db
-              mountPath: /app/staging.db
-              subPath: staging.db
+            - name: kubesentinel-data
+              mountPath: /var/lib/kubesentinel
       containers:
         # Container 1: The Go Monitor (Listens to Falco, writes forensics)
         - name: core-monitor
@@ -65,7 +64,7 @@ spec:
             - name: ALLOW_UNAUTHENTICATED_API
               value: "true" # Safe because it only accepts traffic from localhost inside the pod
             - name: STAGING_DB_PATH
-              value: "/app/staging.db"
+              value: "/var/lib/kubesentinel/staging.db"
             - name: TRIAGE_POLL_INTERVAL
               value: "30"
             - name: TRIAGE_BATCH_SIZE
@@ -82,19 +81,18 @@ spec:
           volumeMounts:
             - name: forensics
               mountPath: /app/forensics
-            - name: staging-db
-              mountPath: /app/staging.db
-              subPath: staging.db
+            - name: kubesentinel-data
+              mountPath: /var/lib/kubesentinel
 
       volumes:
         - name: forensics
           hostPath:
             path: /var/lib/kubesentinel/forensics
             type: DirectoryOrCreate
-        - name: staging-db
+        - name: kubesentinel-data
           hostPath:
-            path: /var/lib/kubesentinel/staging.db
-            type: FileOrCreate
+            path: /var/lib/kubesentinel
+            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service

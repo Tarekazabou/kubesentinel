@@ -52,7 +52,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - chown -R 65534:65534 /app/forensics /app/staging.db || true
+            - chown -R 65534:65534 /app/forensics /var/lib/kubesentinel/staging.db || true
           securityContext:
             runAsUser: 0
             runAsGroup: 0
@@ -61,8 +61,8 @@ spec:
             - name: forensics
               mountPath: /app/forensics
               subPath: forensics
-            - name: staging-db
-              mountPath: /app/staging.db
+            - name: kubesentinel-data
+              mountPath: /var/lib/kubesentinel
       
       containers:
         - name: ai-service
@@ -79,7 +79,7 @@ spec:
                 name: kubesentinel-ai-secrets
           env:
             - name: STAGING_DB_PATH
-              value: "/app/staging.db"
+              value: "/var/lib/kubesentinel/staging.db"
             - name: TRIAGE_POLL_INTERVAL
               value: "30"
             - name: TRIAGE_BATCH_SIZE
@@ -133,8 +133,8 @@ spec:
             - name: forensics
               mountPath: /app/forensics
               subPath: forensics
-            - name: staging-db
-              mountPath: /app/staging.db
+            - name: kubesentinel-data
+              mountPath: /var/lib/kubesentinel
             - name: tmp
               mountPath: /tmp
       
@@ -146,10 +146,10 @@ spec:
           hostPath:
             path: /var/lib/kubesentinel/forensics
             type: DirectoryOrCreate
-        - name: staging-db
+        - name: kubesentinel-data
           hostPath:
-            path: /var/lib/kubesentinel/staging.db
-            type: FileOrCreate
+            path: /var/lib/kubesentinel
+            type: DirectoryOrCreate
         - name: tmp
           emptyDir: {}
 

@@ -18,7 +18,7 @@ ai:
   training_api_token: ""
 
 forensics:
-  storage_path: "./forensics"
+  storage_path: "/var/lib/kubesentinel/forensics"
   retention_days: 90
   max_size_mb: 1000
   compression: false
