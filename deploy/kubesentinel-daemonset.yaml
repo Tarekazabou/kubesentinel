@@ -432,9 +432,6 @@ spec:
             requests:
               cpu: 100m
               memory: 256Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
           
           # Mount Falco socket from host
           volumeMounts:
@@ -584,9 +581,6 @@ spec:
             requests:
               cpu: 200m
               memory: 512Mi
-            limits:
-              cpu: 1000m
-              memory: 1Gi
           
           securityContext:
             runAsNonRoot: true

@@ -25,8 +25,9 @@
 #           echo "Removing old broken cluster..."
 #           minikube delete || true
           
-#           echo "Starting fresh Minikube cluster with safe resource allocation..."
-#           minikube start --memory=2200 --cpus=2 --force
+        #   echo "Starting fresh Minikube cluster with conservative resource allocation..."
+        #   echo "VM has 3.9GB RAM; allocating 2400MB leaves ~1.5GB for system overhead"
+        #   minikube start --memory=2400 --cpus=2 --force
           
 #           echo "Waiting for Minikube control plane to be ready..."
 #           kubectl wait --for=condition=Ready node/minikube --timeout=90s

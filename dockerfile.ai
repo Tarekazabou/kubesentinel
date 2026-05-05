@@ -1,30 +1,44 @@
-# ─────────────────────────────────────────────
-# KubeSentinel — AI module (Python Flask + Gunicorn)
-# ─────────────────────────────────────────────
-FROM python:3.12-slim
+# STAGE 1: Builder — compile native dependencies (scikit-learn, etc.)
+# This stage is cached independently, reducing rebuild time on code changes
+FROM python:3.11-slim-bullseye AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Build deps for native Python extensions (scikit-learn, etc.)
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build tools only in builder stage
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps first (layer-cache friendly)
+# Copy and build wheels (layer cache friendly)
 COPY ai-module/requirements.txt .
-RUN pip install --no-cache-dir --retries 5 --default-timeout=30 -r requirements.txt \
-    && pip install --no-cache-dir gunicorn==22.0.0
+RUN pip install --upgrade pip setuptools wheel && \
+    pip wheel --no-cache-dir --retries 5 --default-timeout=30 -r requirements.txt
+
+# STAGE 2: Runtime — lean image with only runtime dependencies
+FROM python:3.11-slim-bullseye
+
+WORKDIR /app
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Copy pre-built wheels from builder stage and install runtime
+COPY --from=builder /build/dist/ /tmp/wheels/
+COPY ai-module/requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --no-index --find-links=/tmp/wheels/ -r requirements.txt && \
+    pip install --no-cache-dir gunicorn==22.0.0 && \
+    rm -rf /tmp/wheels /app/requirements.txt
 
 # Copy application code
 COPY ai-module/ ./
 
-# Pre-create runtime directories before chown
+# Pre-create runtime directories
 # /app/forensics  — forensic JSON vault
 # /app/models     — Isolation Forest baseline pickle
 # /app/staging.db — SQLite staging vault (triage layer)
 RUN mkdir -p /app/forensics /app/models
-
-# Non-root user for defence in depth
 RUN groupadd -r sentinel \
     && useradd -r -g sentinel -d /app -s /sbin/nologin sentinel \
     && chown -R sentinel:sentinel /app
