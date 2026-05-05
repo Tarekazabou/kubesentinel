@@ -20,6 +20,24 @@ spec:
       labels:
         app: kubesentinel
     spec:
+      initContainers:
+        - name: fix-ai-volume-permissions
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - chown -R 65534:65534 /app/forensics /app/staging.db || true
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: forensics
+              mountPath: /app/forensics
+            - name: staging-db
+              mountPath: /app/staging.db
+              subPath: staging.db
       containers:
         # Container 1: The Go Monitor (Listens to Falco, writes forensics)
         - name: core-monitor
