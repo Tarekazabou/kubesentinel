@@ -1,0 +1,151 @@
+---
+# Secret for KubeSentinel AI service
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubesentinel-ai-secrets
+  namespace: kubesentinel
+type: Opaque
+stringData:
+  GEMINI_API_KEY: ""
+  ENRICH_WITH_GEMINI: "true"
+  TRAINING_API_TOKEN: "9c542c438bcb773d0ef69dab1b13186e"
+  GEMINI_RATE_LIMIT_PER_MINUTE: "25"
+
+---
+# Deployment for the AI/ML module
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesentinel-ai
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-ai
+    version: v1
+spec:
+  replicas: 1 # TriageWorker is a singleton daemon thread — scaling to >1 causes SQLite race condition and duplicate forensic writes.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: kubesentinel-ai
+  template:
+    metadata:
+      labels:
+        app: kubesentinel-ai
+        version: v1
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: kubesentinel
+      
+      containers:
+        - name: ai-service
+          image: kubesentinel-ai:latest
+          imagePullPolicy: IfNotPresent
+          
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          
+          envFrom:
+            - secretRef:
+                name: kubesentinel-ai-secrets
+          env:
+            - name: STAGING_DB_PATH
+              value: "/app/staging.db"
+            - name: TRIAGE_POLL_INTERVAL
+              value: "30"
+            - name: TRIAGE_BATCH_SIZE
+              value: "10"
+          
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false  # gunicorn writes temp files
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
+          
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness probe
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          
+          volumeMounts:
+            - name: models
+              mountPath: /app/models
+            - name: forensics
+              mountPath: /app/forensics
+              subPath: forensics
+            - name: staging-db
+              mountPath: /app/staging.db
+              subPath: staging.db
+      
+      volumes:
+        - name: models
+          emptyDir:
+            sizeLimit: 500Mi
+        - name: forensics
+          hostPath:
+            path: /var/lib/kubesentinel/forensics
+            type: DirectoryOrCreate
+        - name: staging-db
+          hostPath:
+            path: /var/lib/kubesentinel/staging.db
+            type: FileOrCreate
+
+---
+# Service for the AI module
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubesentinel-ai
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel-ai
+    version: v1
+spec:
+  # ClusterIP keeps the AI service internal-only.
+  # Expose externally via an Ingress or kubectl port-forward during development.
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+  selector:
+    app: kubesentinel-ai
