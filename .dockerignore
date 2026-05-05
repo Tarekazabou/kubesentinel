@@ -1,39 +1,76 @@
-# Git
+# Version control
 .git
 .gitignore
+.gitattributes
 .github
 
-# Build artifacts
+# CI/CD
+.github/workflows
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Documentation
+*.md
+docs/
+README.md
+CONTRIBUTING.md
+LICENSE
+
+# Build artifacts and temporary files
 bin/
 dist/
+build/
 *.o
 *.a
+*.out
+*.so
+*.exe
+*.dll
 
-# Development
+# Development and testing
 node_modules/
 .node-gyp
 .npm
-*.log
+test/
+tests/
+*_test.go
+.pytest_cache/
+.tox/
+.hypothesis/
+test_*.py
+test_staging_*.db
+coverage/
+*.cover
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 *.egg-info/
-.pytest_cache/
 .venv/
 venv/
+ENV/
+env/
 
-# IDE
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.iml
+.sublime-*
+.gradle/
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
+.AppleDouble
+.LSOverride
+.directory
+$RECYCLE.BIN/
 
 # Project-specific
 forensics/
@@ -41,4 +78,48 @@ reports/
 coverage.html
 coverage.out
 .env
+.env.local
+.env.*.local
+config/config.yaml
 config.local.yaml
+
+# Logs
+*.log
+logs/
+
+# Go specific
+go.sum
+vendor/
+
+# Staging vault (local development only)
+staging.db
+*.db
+*.db-shm
+*.db-wal
+
+# Archive files
+*.tar.gz
+*.zip
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Deployment and Kubernetes
+deploy/test/
+kubeconfig*
+*.yaml.bak
+
+# LaTeX reports
+latex_repport/
+
+# Models and large files (optional - uncomment if needed)
+# ai-module/models/*.pkl
+# ai-module/models/*.joblib
+
+# Security
+.env
+.env.local
+.env.*.local
+secrets/
