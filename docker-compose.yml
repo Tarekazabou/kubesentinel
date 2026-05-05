@@ -9,13 +9,9 @@ services:
     container_name: kubesentinel
     command: monitor --config /app/config/config.yaml
     volumes:
-      # Mount config directory
       - ./config:/app/config:ro
-      # Mount forensics (persistent)
       - ./forensics:/app/forensics
-      # Mount reports (persistent)
       - ./reports:/app/reports
-      # Mount Falco socket (from host, if available)
       - /run/falco:/run/falco:ro
     environment:
       - LOG_LEVEL=info
@@ -34,24 +30,37 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount models directory
       - ./ai-module/models:/app/models
-      # Mount forensics (confirmed incidents are written here)
+      # Confirmed forensic JSON files land here
       - ./forensics:/app/forensics
+      # SQLite staging vault — MUST be a named volume or host path,
+      # otherwise every restart wipes the pending triage queue
+      - ./staging.db:/app/staging.db
     environment:
       - FLASK_ENV=production
+      # Gemini — key alone is not enough, ENRICH_WITH_GEMINI must be "true"
+      # to activate enrichment in server.py and the triage worker
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ENRICH_WITH_GEMINI=${ENRICH_WITH_GEMINI:-false}
+      - GEMINI_RATE_LIMIT_PER_MINUTE=25
+      # Auth token for /train and /api/staging/<id>/override
+      - TRAINING_API_TOKEN=${TRAINING_API_TOKEN:-}
+      # Triage layer
       - STAGING_DB_PATH=/app/staging.db
       - TRIAGE_POLL_INTERVAL=30
       - TRIAGE_BATCH_SIZE=10
     networks:
       - kubesentinel-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      # curl is NOT installed in python:3.12-slim — use python instead,
+      # matching the HEALTHCHECK instruction in Dockerfile.ai
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 30s
       timeout: 10s
+      # cold-start: model bootstrap + SQLite schema init takes 8-12s minimum
+      start_period: 30s
       retries: 3
-      start_period: 5s
 
 networks:
   kubesentinel-net:

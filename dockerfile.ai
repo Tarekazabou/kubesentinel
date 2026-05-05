@@ -1,24 +1,56 @@
+# ─────────────────────────────────────────────
+# KubeSentinel — AI module (Python Flask + Gunicorn)
+# ─────────────────────────────────────────────
 FROM python:3.12-slim
+
 WORKDIR /app
 
+# Build deps for native Python extensions (scikit-learn, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Python deps first (layer-cache friendly)
 COPY ai-module/requirements.txt .
 RUN pip install --no-cache-dir --retries 5 --default-timeout=30 -r requirements.txt \
     && pip install --no-cache-dir gunicorn==22.0.0
+
+# Copy application code
 COPY ai-module/ ./
+
+# Pre-create runtime directories before chown
+# /app/forensics  — forensic JSON vault
+# /app/models     — Isolation Forest baseline pickle
+# /app/staging.db — SQLite staging vault (triage layer)
 RUN mkdir -p /app/forensics /app/models
 
-# Run as non-root for defence in depth.
-RUN groupadd -r sentinel && useradd -r -g sentinel -d /app -s /sbin/nologin sentinel \
+# Non-root user for defence in depth
+RUN groupadd -r sentinel \
+    && useradd -r -g sentinel -d /app -s /sbin/nologin sentinel \
     && chown -R sentinel:sentinel /app
 
 EXPOSE 5000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+
+# start-period=30s: cold-start includes model bootstrap + SQLite schema init
+# (scikit-learn synthetic data generation can take 8-12s on first run)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"
 
 USER sentinel
 
-CMD ["gunicorn", "--workers", "4", "--bind", "0.0.0.0:5000", "--timeout", "60", "--access-logfile", "-", "server:app"]
+# IMPORTANT — single worker + 4 threads, NOT 4 workers.
+#
+# The triage worker (TriageWorker) is a daemon thread started inside server.py
+# at Flask init time. With --workers > 1, Gunicorn forks N processes and each
+# independently starts a TriageWorker, causing all N workers to race on the
+# same SQLite staging table → duplicate forensic writes + triage conflicts.
+#
+# --workers 1  → one process, one TriageWorker, no SQLite race condition
+# --threads 4  → equivalent I/O throughput for a network-bound Flask service
+CMD ["gunicorn", \
+     "--workers", "1", \
+     "--threads", "4", \
+     "--bind", "0.0.0.0:5000", \
+     "--timeout", "60", \
+     "--access-logfile", "-", \
+     "server:app"]
