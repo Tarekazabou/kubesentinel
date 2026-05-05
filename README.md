@@ -40,8 +40,12 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
   - **NetworkPolicy Analysis**: Analyzes ingress/egress rules and default-deny policies (similar to cilium, checkov).
   - **Compliance Mapping**: Violations are automatically mapped to CIS Benchmarks, NIST SP 800-190, SOC2, and PCI-DSS (similar to kube-bench/Falco compliance mapping).
 - **Runtime Monitor**: Streams and processes Falco security events
-- **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
-- **Forensic Vault**: Stores incident evidence with retention, max-size pruning, and optional gzip compression
+- **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest with configurable thresholds
+- **LLM Triage Staging Vault**: High-risk anomalies staged in SQLite for human or Gemini review before forensics write
+  - Optional LLM enrichment with MITRE ATT&CK classification
+  - Passthrough mode for fast auto-confirmation
+  - API override for manual triage decisions
+- **Forensic Vault**: Confirmed incident evidence with retention, max-size pruning, and optional gzip compression
 - **Report Generator**: Produces Markdown, JSON, and HTML investigation outputs
 - **Gemini Enrichment (Optional)**: Adds runtime incident classification metadata and report narratives with redaction and deterministic fallback
 
@@ -134,6 +138,20 @@ Runtime monitor example:
 make -C scripts test
 ```
 
+Run only AI staging tests:
+
+```bash
+cd ai-module
+python -m pytest tests/test_staging_api.py -v
+```
+
+Integration test (requires running AI service):
+
+```bash
+python -m pytest tests/test_anomaly_detector.py -v
+go test -v -run TestAIIntegration ./internal/runtime  # Requires: make run-ai
+```
+
 ## Usage
 
 Common commands:
@@ -165,6 +183,46 @@ gemini:
   model: "gemini-2.5-flash"
   timeout_seconds: 15
 ```
+
+AI service environment variables:
+
+```bash
+STAGING_DB_PATH=/app/staging.db       # SQLite path for staging vault
+TRIAGE_POLL_INTERVAL=30               # Seconds between triage worker polls
+TRIAGE_BATCH_SIZE=10                  # Max incidents processed per poll cycle
+ENRICH_WITH_GEMINI=true               # Enable LLM-based triage (false = passthrough auto-confirm)
+GEMINI_API_KEY=<key>                  # Gemini API key for LLM enrichment
+```
+
+Runtime triage flow:
+
+```text
+Falco event → Go producer builds incident payload
+              ↓
+          /predict (with incident_data)
+              ↓
+         Isolation Forest scores >= 0.5
+              ↓
+      Staging vault (SQLite, status='pending')
+              ↓
+  Background triage worker polls every 30s
+              ↓
+    ┌─────────────────────────┬──────────────────────┐
+    │                         │                      │
+  Gemini verdict        Passthrough mode      On error
+    │                    (no Gemini)          (stay pending)
+    ├─ confirmed         auto-confirmed            │
+    │   (→ forensics)     (→ forensics)            │
+    └─ rejected
+    (stay in staging)
+```
+
+### Staging Vault Details
+
+- **Database**: SQLite with WAL mode for concurrent read/write performance
+- **Passthrough Mode**: Set `ENRICH_WITH_GEMINI=false` to auto-confirm all pending incidents without calling Gemini
+- **Logging**: Staging failures log incident metadata (namespace-pod-rule) for pod log correlation
+- **Override API**: `POST /api/staging/<id>/override` with `{"verdict": "confirmed|rejected", "reason": "..."}` (requires `TRAINING_API_TOKEN`)
 
 ## Documentation
 

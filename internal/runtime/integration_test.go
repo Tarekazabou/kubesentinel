@@ -34,9 +34,10 @@ func TestAIIntegration(t *testing.T) {
 	}
 
 	start := time.Now()
-	resp, err := client.DetectAnomaly(context.Background(), testVec)
+	// Test 1: Pass nil for incident payload (fallback/legacy mode)
+	resp, err := client.DetectAnomaly(context.Background(), testVec, nil)
 	if err != nil {
-		t.Fatalf("DetectAnomaly failed: %v", err)
+		t.Fatalf("DetectAnomaly failed without incident payload: %v", err)
 	}
 
 	latency := time.Since(start).Milliseconds()
@@ -48,6 +49,52 @@ func TestAIIntegration(t *testing.T) {
 		t.Errorf("Score out of range: %f", resp.Score)
 	}
 
-	t.Logf("✅ AI integration OK | Score=%.3f | Reason=%s | Latency=%d ms",
+	t.Logf("✅ AI integration OK (No Incident) | Score=%.3f | Reason=%s | Latency=%d ms",
 		resp.Score, resp.Reason, latency)
+
+	// Test 2: Include a valid incident payload to test staging logic
+	dummyIncident := map[string]interface{}{
+		"id":            "test-incident-integration",
+		"timestamp":     time.Now().Format(time.RFC3339),
+		"incident_type": "TestAnomaly",
+		"severity":      "high",
+		"risk_score":    0.99,
+		"description":   "Integration test anomaly",
+		"container": map[string]string{
+			"id":        "container-uuid",
+			"name":      "test-container",
+			"pod_name":  "test-pod",
+			"namespace": "default",
+		},
+		"metadata": map[string]interface{}{
+			"process_name":      "cat",
+			"process_frequency": 5,
+			"file_access_count": 120,
+			"network_count":     3,
+			"sensitive_files":   1,
+			"time_of_day":       3,
+			"day_of_week":       6,
+			"container_age":     300,
+			"unique_syscalls":   5,
+		},
+		"events": []map[string]interface{}{
+			{
+				"timestamp": time.Now().Format(time.RFC3339),
+				"rule":      "TestRule",
+				"output":    "Test Output",
+			},
+		},
+	}
+
+	respWithIncident, err := client.DetectAnomaly(context.Background(), testVec, dummyIncident)
+	if err != nil {
+		t.Fatalf("DetectAnomaly failed with incident payload: %v", err)
+	}
+
+	if respWithIncident.Score < 0 || respWithIncident.Score > 1 {
+		t.Errorf("Score out of range: %f", respWithIncident.Score)
+	}
+
+	t.Logf("✅ AI integration OK (With Incident) | Score=%.3f | Reason=%s",
+		respWithIncident.Score, respWithIncident.Reason)
 }

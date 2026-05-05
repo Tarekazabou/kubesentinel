@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: risky-app
+spec:
+  containers:
+  - name: app
+    image: myapp:latest
+    env:
+    - name: DB_PASSWORD
+      value: "admin123"
+    - name: API_TOKEN
+      value: "sk-live-abc123xyz"
+  - name: sidecar
+    image: untrusted/sidecar:v1
+    envFrom:
+    - secretRef:
+        name: hardcoded-secret  # assume this secret contains literal credentials
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: permissive-policy
+spec:
+  podSelector: {}
+  ingress:
+  - {}
+  egress:
+  - {}
+  policyTypes:
+  - Ingress
+  - Egress

@@ -6,6 +6,7 @@ import (
 	"kubesentinel/internal/ai"
 	"kubesentinel/internal/forensics"
 	"kubesentinel/internal/llm"
+	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -268,9 +269,16 @@ func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event Secu
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	resp, err := ep.AIClient.DetectAnomaly(ctx, aiVec)
+	// Build a provisional forensic record (risk score placeholder) and send it
+	// as part of the anomaly request so the AI service can stage the incident
+	// for triage. The AI service will compute the final score.
+	provisionalRecord := buildForensicRecord(event, features, 0.0, time.Now())
+
+	resp, err := ep.AIClient.DetectAnomaly(ctx, aiVec, provisionalRecord)
 	if err != nil {
 		fmt.Printf("[AI ERROR] %v → using fallback\n", err)
+		incidentID := fmt.Sprintf("%s-%s-%s", event.Container.Namespace, event.Container.PodName, event.Rule)
+		log.Printf("[WARN] anomaly staging failed for incident %s: %v", incidentID, err)
 		atomic.AddInt64(&ep.Metrics.ErrorCount, 1)
 		return ep.calculateRisk(event, features)
 	}
@@ -325,10 +333,14 @@ func (ep *EventProcessor) ProcessEvent(event SecurityEvent) (ProcessedEvent, err
 
 	if isAnomaly {
 		atomic.AddInt64(&ep.Metrics.AnomaliesDetected, 1)
-		if err := ep.storeForensicData(processedEvent); err != nil {
-			atomic.AddInt64(&ep.Metrics.ErrorCount, 1)
-			fmt.Printf("[FORENSICS ERROR] failed to store anomaly record: %v\n", err)
-		}
+		// Anomaly detected: staging is handled by the AI service.
+		// The EventProcessor now includes a provisional incident payload with the
+		// /predict call so the Python service stages it for triage. Avoid writing
+		// forensic JSON files here to prevent duplication.
+		fmt.Printf("[ANOMALY] detected and staged via AI service: Risk=%.2f, Rule=%s, Container=%s\n",
+			processedEvent.RiskScore,
+			event.Rule,
+			event.Container.Name)
 	}
 
 	return processedEvent, nil
