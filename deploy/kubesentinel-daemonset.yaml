@@ -517,6 +517,19 @@ spec:
           emptyDir: {}
 
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kubesentinel-ai-secrets
+  namespace: kubesentinel
+type: Opaque
+stringData:
+  GEMINI_API_KEY: ""
+  ENRICH_WITH_GEMINI: "true"
+  TRAINING_API_TOKEN: ""
+  GEMINI_RATE_LIMIT_PER_MINUTE: "25"
+
+---
 # Deployment for the AI/ML module
 apiVersion: apps/v1
 kind: Deployment
@@ -527,7 +540,7 @@ metadata:
     app: kubesentinel-ai
     version: v1
 spec:
-  replicas: 2
+  replicas: 1 # TriageWorker is a singleton daemon thread — scaling to >1 causes SQLite race condition and duplicate forensic writes.
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -556,15 +569,10 @@ spec:
               containerPort: 5000
               protocol: TCP
           
+          envFrom:
+            - secretRef:
+                name: kubesentinel-ai-secrets
           env:
-            - name: GEMINI_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: kubesentinel-secrets
-                  key: gemini-api-key
-                  optional: true
-            - name: ENRICH_WITH_GEMINI
-              value: "false"
             - name: STAGING_DB_PATH
               value: "/app/staging.db"
             - name: TRIAGE_POLL_INTERVAL
@@ -629,11 +637,13 @@ spec:
           emptyDir:
             sizeLimit: 500Mi
         - name: forensics
-          persistentVolumeClaim:
-            claimName: kubesentinel-data-pvc
+          hostPath:
+            path: /var/lib/kubesentinel/forensics
+            type: DirectoryOrCreate
         - name: staging-db
-          persistentVolumeClaim:
-            claimName: kubesentinel-data-pvc
+          hostPath:
+            path: /var/lib/kubesentinel/staging.db
+            type: FileOrCreate
 
 ---
 # Service for the AI module
@@ -681,3 +691,21 @@ spec:
       protocol: TCP
   selector:
     app: kubesentinel
+
+---
+# Service for Falcosidekick runtime event ingestion
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubesentinel-runtime
+  namespace: kubesentinel
+  labels:
+    app: kubesentinel
+spec:
+  type: ClusterIP
+  selector:
+    app: kubesentinel
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
