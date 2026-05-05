@@ -60,7 +60,6 @@ spec:
               subPath: forensics
             - name: staging-db
               mountPath: /app/staging.db
-              subPath: staging.db
       
       containers:
         - name: ai-service
@@ -133,7 +132,6 @@ spec:
               subPath: forensics
             - name: staging-db
               mountPath: /app/staging.db
-              subPath: staging.db
             - name: tmp
               mountPath: /tmp
       

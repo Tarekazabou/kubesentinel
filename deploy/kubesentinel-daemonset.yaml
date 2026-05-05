@@ -380,10 +380,10 @@ spec:
           imagePullPolicy: IfNotPresent
           
           command:
-            - /bin/sh
-            - -c
+            - /app/kubesentinel
           args:
-            - "cat /run/falco/falco.pipe | grep -E '^\\{' | /app/kubesentinel monitor-stdin --config=/etc/kubesentinel/config.yaml || true"
+            - monitor
+            - --config=/etc/kubesentinel/config.yaml
           
           ports:
             - name: metrics
