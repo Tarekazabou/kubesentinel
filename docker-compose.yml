@@ -36,11 +36,14 @@ services:
     volumes:
       # Mount models directory
       - ./ai-module/models:/app/models
-      # Mount forensics (for reading incidents)
-      - ./forensics:/app/forensics:ro
+      # Mount forensics (confirmed incidents are written here)
+      - ./forensics:/app/forensics
     environment:
       - FLASK_ENV=production
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - STAGING_DB_PATH=/app/staging.db
+      - TRIAGE_POLL_INTERVAL=30
+      - TRIAGE_BATCH_SIZE=10
     networks:
       - kubesentinel-net
     healthcheck:

@@ -46,6 +46,12 @@ spec:
           env:
             - name: ALLOW_UNAUTHENTICATED_API
               value: "true" # Safe because it only accepts traffic from localhost inside the pod
+            - name: STAGING_DB_PATH
+              value: "/app/staging.db"
+            - name: TRIAGE_POLL_INTERVAL
+              value: "30"
+            - name: TRIAGE_BATCH_SIZE
+              value: "10"
             # Set GEMINI_API_KEY here if you want enrichment
             # - name: GEMINI_API_KEY
             #   valueFrom:

@@ -24,6 +24,7 @@ from collections import deque
 from threading import Lock
 from dotenv import load_dotenv
 from functools import wraps
+from db import get_db
 
 # Load environment variables from .env file
 load_dotenv()
@@ -58,6 +59,7 @@ GEMINI_RATE_LIMIT_PER_MINUTE = int(os.getenv('GEMINI_RATE_LIMIT_PER_MINUTE', '25
 _gemini_call_timestamps = deque()
 _gemini_rate_lock = Lock()
 detector_lock = Lock()
+triage_worker = None
 
 
 def can_call_gemini() -> bool:
@@ -400,6 +402,87 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize Gemini: {e}")
     gemini_model = None
+
+
+def resolve_forensics_dir() -> Path:
+    """Return the runtime forensics directory with local-dev fallback."""
+    primary = Path("/app/forensics")
+    if primary.exists():
+        return primary
+    return Path(__file__).parent.parent / "forensics"
+
+
+def write_incident_to_forensics(incident_data: dict):
+    """Persist an incident JSON file using the existing forensics vault format."""
+    forensics_dir = resolve_forensics_dir()
+    forensics_dir.mkdir(parents=True, exist_ok=True)
+
+    incident_id = str(incident_data.get("id") or int(time.time() * 1000))
+    safe_id = incident_id.replace("/", "_").replace("\\", "_")
+    file_path = forensics_dir / f"incident_{safe_id}.json"
+
+    with open(file_path, "w", encoding="utf-8") as handle:
+        json.dump(incident_data, handle, indent=2, ensure_ascii=False, default=str)
+
+    return str(file_path)
+
+
+def write_to_staging(incident_data: dict, if_score: float):
+    """
+    incident_data is the full incident dict that would have been written
+    to the forensics vault directly.
+    """
+    conn = get_db()
+    conn.execute(
+        """
+        INSERT INTO incident_staging
+        (incident_id, timestamp, raw_event, if_score,
+         container_id, container_name, pod_name, namespace, rule)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            incident_data.get("id"),
+            incident_data.get("timestamp"),
+            json.dumps(incident_data),
+            if_score,
+            incident_data.get("container", {}).get("id"),
+            incident_data.get("container", {}).get("name"),
+            incident_data.get("container", {}).get("pod_name"),
+            incident_data.get("container", {}).get("namespace"),
+            incident_data.get("events", [{}])[0].get("rule") if incident_data.get("events") else None,
+        ),
+    )
+    conn.commit()
+
+
+def _staging_row_to_dict(row):
+    row_dict = dict(row)
+    raw_event = row_dict.get("raw_event")
+    if isinstance(raw_event, str):
+        try:
+            row_dict["raw_event"] = json.loads(raw_event)
+        except Exception:
+            pass
+    return row_dict
+
+
+def _get_triage_worker_instance(start_if_needed: bool = False):
+    global triage_worker
+    if triage_worker is None:
+        from triage_worker import TriageWorker
+
+        triage_worker = TriageWorker(
+            poll_interval=int(os.environ.get("TRIAGE_POLL_INTERVAL", "30")),
+            batch_size=int(os.environ.get("TRIAGE_BATCH_SIZE", "10")),
+            gemini_model=gemini_model,
+            can_call_gemini=can_call_gemini,
+            write_forensics_fn=write_incident_to_forensics,
+        )
+
+    if start_if_needed:
+        triage_worker.start()
+
+    return triage_worker
     
 
 # Update the existing route if needed
@@ -478,6 +561,14 @@ def predict():
         features = data['features']
         with detector_lock:
             result = detector.predict(features)
+
+        incident_data = data.get('incident_data')
+        if result.get('is_anomaly') and isinstance(incident_data, dict):
+            try:
+                write_to_staging(incident_data, float(result.get('score', 0.0)))
+                logger.info("Anomalous incident queued in staging vault: %s", incident_data.get('id'))
+            except Exception as staging_error:
+                logger.error("Failed to write incident to staging vault: %s", staging_error)
         
         logger.info(f"Prediction: anomaly={result['is_anomaly']}, score={result['score']:.3f}")
         
@@ -522,6 +613,99 @@ def model_info():
         })
 
 
+@app.route('/api/staging', methods=['GET'])
+def get_staging_rows():
+    """List staged incidents with optional filtering by status/namespace."""
+    try:
+        status = request.args.get('status')
+        namespace = request.args.get('namespace')
+
+        query = "SELECT * FROM incident_staging WHERE 1=1"
+        params = []
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+
+        if namespace:
+            query += " AND namespace = ?"
+            params.append(namespace)
+
+        query += " ORDER BY created_at DESC, id DESC"
+
+        conn = get_db()
+        rows = conn.execute(query, tuple(params)).fetchall()
+        staging = [_staging_row_to_dict(row) for row in rows]
+
+        return jsonify({
+            'staging': staging,
+            'total': len(staging),
+        })
+    except Exception as e:
+        logger.error(f"Error in /api/staging: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/staging/<int:row_id>', methods=['GET'])
+def get_staging_row(row_id: int):
+    """Fetch one staged incident by numeric row id."""
+    try:
+        conn = get_db()
+        row = conn.execute(
+            "SELECT * FROM incident_staging WHERE id = ?",
+            (row_id,),
+        ).fetchone()
+
+        if row is None:
+            return jsonify({'error': 'Staging row not found'}), 404
+
+        return jsonify(_staging_row_to_dict(row))
+    except Exception as e:
+        logger.error(f"Error in /api/staging/{row_id}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/staging/<int:row_id>/override', methods=['POST'])
+@require_train_token
+def override_staging_row(row_id: int):
+    """Allow manual override to confirm or reject a staged incident."""
+    try:
+        body = request.get_json(silent=True) or {}
+        verdict = str(body.get('verdict', '')).strip().lower()
+        reason = body.get('reason')
+
+        if verdict not in ('confirmed', 'rejected'):
+            return jsonify({'error': 'verdict must be confirmed or rejected'}), 400
+
+        conn = get_db()
+        row = conn.execute(
+            "SELECT * FROM incident_staging WHERE id = ?",
+            (row_id,),
+        ).fetchone()
+
+        if row is None:
+            return jsonify({'error': 'Staging row not found'}), 404
+
+        worker = _get_triage_worker_instance(start_if_needed=False)
+        triage_result = {
+            'reason': reason,
+            'severity': None,
+            'mitre_tactic': None,
+            'enriched_description': None,
+            'remediation': None,
+            'triage_source': 'passthrough',
+        }
+
+        if verdict == 'confirmed':
+            worker._write_confirmed_to_forensics(row, triage_result)
+
+        worker._update_staging_row(conn, row_id, verdict, triage_result)
+        return jsonify({'status': 'ok', 'verdict': verdict})
+    except Exception as e:
+        logger.error(f"Error in /api/staging/{row_id}/override: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 def build_gemini_prompt(incident, metadata):
     return f"""
 Analyze this Kubernetes security incident and provide a clear, professional explanation (2-4 sentences):
@@ -538,13 +722,9 @@ def get_ai_incidents():
     """Read incidents from forensics/ and enrich with Gemini where helpful"""
     try:
         # Prefer mounted runtime forensics path in container, fallback to repo path for local dev.
-        forensics_dir = Path("/app/forensics")
+        forensics_dir = resolve_forensics_dir()
         
         logger.info(f"Checking for forensics at: {forensics_dir} (exists: {forensics_dir.exists()})")
-        
-        if not forensics_dir.exists():
-            forensics_dir = Path(__file__).parent.parent / "forensics"
-            logger.info(f"Fallback to: {forensics_dir} (exists: {forensics_dir.exists()})")
         
         if not forensics_dir.exists():
             error_msg = f"Forensics folder not found at {forensics_dir}"
@@ -628,6 +808,10 @@ if __name__ == '__main__':
     # Create models directory
     os.makedirs('models', exist_ok=True)
     
+    # Start worker once (avoid Flask debug reloader duplicate workers).
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+        _get_triage_worker_instance(start_if_needed=True)
+
     # Start server
     logger.info("Starting AI/ML service on port 5000")
     app.run(host='0.0.0.0', port=5000, debug=False)

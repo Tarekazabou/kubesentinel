@@ -34,7 +34,8 @@ func TestAIIntegration(t *testing.T) {
 	}
 
 	start := time.Now()
-	resp, err := client.DetectAnomaly(context.Background(), testVec)
+	// Pass nil for incident payload in this integration test (no staging needed)
+	resp, err := client.DetectAnomaly(context.Background(), testVec, nil)
 	if err != nil {
 		t.Fatalf("DetectAnomaly failed: %v", err)
 	}
