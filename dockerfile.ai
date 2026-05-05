@@ -11,10 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and build wheels (layer cache friendly)
+# Copy and build wheels to dist directory (layer cache friendly)
 COPY ai-module/requirements.txt .
 RUN pip install --upgrade pip setuptools wheel && \
-    pip wheel --no-cache-dir --retries 5 --default-timeout=30 -r requirements.txt
+    mkdir -p /build/dist && \
+    pip wheel --no-cache-dir --retries 5 --default-timeout=30 --wheel-dir=/build/dist -r requirements.txt
 
 # STAGE 2: Runtime — lean image with only runtime dependencies
 FROM python:3.11-slim-bullseye
@@ -24,7 +25,7 @@ WORKDIR /app
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Copy pre-built wheels from builder stage and install runtime
-COPY --from=builder /build/dist/ /tmp/wheels/
+COPY --from=builder /build/dist /tmp/wheels
 COPY ai-module/requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir --no-index --find-links=/tmp/wheels/ -r requirements.txt && \
