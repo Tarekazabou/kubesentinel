@@ -620,12 +620,18 @@ spec:
             - name: forensics
               mountPath: /app/forensics
               subPath: forensics
+            - name: staging-db
+              mountPath: /app/staging.db
+              subPath: staging.db
       
       volumes:
         - name: models
           emptyDir:
             sizeLimit: 500Mi
         - name: forensics
+          persistentVolumeClaim:
+            claimName: kubesentinel-data-pvc
+        - name: staging-db
           persistentVolumeClaim:
             claimName: kubesentinel-data-pvc
 

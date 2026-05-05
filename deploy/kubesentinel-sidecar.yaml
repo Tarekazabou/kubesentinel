@@ -36,7 +36,7 @@ spec:
             - containerPort: 8080
               name: webhook
           volumeMounts:
-            - name: shared-forensics
+            - name: forensics
               mountPath: /app/forensics
 
         # Container 2: The Python AI Server (Anomaly detection & API)
@@ -62,13 +62,21 @@ spec:
             - containerPort: 5000
               name: ai-api
           volumeMounts:
-            - name: shared-forensics
+            - name: forensics
               mountPath: /app/forensics
+            - name: staging-db
+              mountPath: /app/staging.db
+              subPath: staging.db
 
       volumes:
-        # Shared volume: Go writes the incident JSONs here, Python reads them for the dashboard
-        - name: shared-forensics
-          emptyDir: {}
+        - name: forensics
+          hostPath:
+            path: /var/lib/kubesentinel/forensics
+            type: DirectoryOrCreate
+        - name: staging-db
+          hostPath:
+            path: /var/lib/kubesentinel/staging.db
+            type: FileOrCreate
 ---
 apiVersion: v1
 kind: Service
