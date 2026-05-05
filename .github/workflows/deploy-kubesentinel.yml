@@ -72,6 +72,16 @@
 #             -n kubesentinel --dry-run=client -o yaml | kubectl apply -f -
 #         shell: bash
 
+#       - name: Set up hostPath for AI module
+#         run: |
+#           echo "Creating /var/lib/kubesentinel with proper ownership for uid 65534..."
+#           minikube ssh "sudo mkdir -p /var/lib/kubesentinel/forensics && \
+#             sudo touch /var/lib/kubesentinel/staging.db && \
+#             sudo chown -R 65534:65534 /var/lib/kubesentinel && \
+#             sudo chmod -R 755 /var/lib/kubesentinel"
+#           echo "✓ HostPath setup complete"
+#         shell: bash
+
 #       - name: Deploy Kubernetes Manifests
 #         run: |
 #           echo "Applying DaemonSet, Deployments, and Services..."

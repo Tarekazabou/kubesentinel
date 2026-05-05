@@ -42,6 +42,26 @@ spec:
     spec:
       serviceAccountName: kubesentinel
       
+      initContainers:
+        - name: fix-ai-volume-permissions
+          image: busybox:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - chown -R 65534:65534 /app/forensics /app/staging.db || true
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: forensics
+              mountPath: /app/forensics
+              subPath: forensics
+            - name: staging-db
+              mountPath: /app/staging.db
+              subPath: staging.db
+      
       containers:
         - name: ai-service
           image: kubesentinel-ai:latest
@@ -67,6 +87,9 @@ spec:
             requests:
               cpu: 200m
               memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
           
           securityContext:
             runAsNonRoot: true
@@ -97,10 +120,10 @@ spec:
               path: /health
               port: http
               scheme: HTTP
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 2
+            failureThreshold: 5
           
           volumeMounts:
             - name: models
@@ -111,6 +134,8 @@ spec:
             - name: staging-db
               mountPath: /app/staging.db
               subPath: staging.db
+            - name: tmp
+              mountPath: /tmp
       
       volumes:
         - name: models
@@ -124,6 +149,8 @@ spec:
           hostPath:
             path: /var/lib/kubesentinel/staging.db
             type: FileOrCreate
+        - name: tmp
+          emptyDir: {}
 
 ---
 # Service for the AI module
