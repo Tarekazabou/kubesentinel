@@ -49,6 +49,65 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
 - **Report Generator**: Produces Markdown, JSON, and HTML investigation outputs
 - **Gemini Enrichment (Optional)**: Adds runtime incident classification metadata and report narratives with redaction and deterministic fallback
 
+## Architecture & Data Flow
+
+```mermaid
+graph TD
+    %% Entities
+    Dev([Developer / CI Pipeline])
+    K8s[(Kubernetes Cluster)]
+    Auditor([Security Analyst / Auditor])
+
+    %% Layer 1
+    subgraph Layer 1: Pre-deployment
+        SPE[Static Policy Engine<br/>Go]
+    end
+
+    %% Layer 2
+    subgraph Layer 2: Runtime
+        Falco[Falco eBPF]
+        RM[Runtime Monitor<br/>Go Producer]
+    end
+
+    %% Layer 3
+    subgraph Layer 3: AI Analysis
+        API[/predict Endpoint<br/>Python/]
+        ML[Isolation Forest Model]
+        Staging[(SQLite Staging Vault)]
+        Triage[Background Triage Worker]
+        Gemini[Gemini API<br/>MITRE ATT&CK]
+    end
+
+    %% Layer 4
+    subgraph Layer 4: Forensics
+        Vault[(Forensic Vault<br/>1GB cap, gzip)]
+        RepGen[Report Generator]
+    end
+
+    %% Data Flow Connections
+    Dev -- "1. Submits YAML/Helm" --> SPE
+    SPE -- "2a. Violations Found (Block)" --> Dev
+    SPE -- "2b. Clean Manifests" --> K8s
+    
+    K8s -- "3. eBPF Syscalls" --> Falco
+    Falco -- "4. Raw Security Events" --> RM
+    RM -- "5. Structured JSON Payload" --> API
+    
+    API -- "6. Ingests Data" --> ML
+    ML -- "7a. Score < 0.5" --> Drop[Discarded]
+    ML -- "7b. Score >= 0.5" --> Staging
+    
+    Staging -- "8. Polls every 30s" --> Triage
+    Triage -- "9. Context/Classification" --> Gemini
+    Gemini -- "10. MITRE Tags" --> Triage
+    
+    Triage -- "11a. Rejected" --> Staging
+    Triage -- "11b. Confirmed Incident" --> Vault
+    
+    Vault -- "12. Stores compressed evidence" --> RepGen
+    RepGen -- "13. Output MD/JSON/HTML" --> Auditor
+```
+
 ## Tech Stack
 
 - **Go 1.21+** for CLI and core services
