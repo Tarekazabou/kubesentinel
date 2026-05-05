@@ -59,6 +59,29 @@ sudo ls -la /run/falco/
 # -rw-r--r-- 1 root root 0 Apr 10 10:00 falco.sock
 ```
 
+### Debug Falco JSON Output (P1)
+
+To verify that Falco is outputting JSON format correctly:
+
+```bash
+# 1. Verify Falco is outputting JSON to the pipe (from worker node)
+sudo tail -f /run/falco/falco.pipe | head -5
+
+# Output should look like:
+# {"time":"2026-05-05T10:30:45.123456Z","priority":"warning",...}
+
+# 2. Check Falco pod logs for errors
+kubectl logs -n falco -l app=falco | grep -i "json\|error\|output"
+
+# 3. Verify json_output is enabled in deployed Falco config
+kubectl get cm -n falco -o yaml | grep json_output
+
+# 4. If JSON is not being output, check:
+#    - deploy/falco-values.yaml has json_output: true
+#    - Falco version is 0.37.1+ (supports modern JSON output)
+#    - No custom ConfigMap is overriding falco-values.yaml settings
+```
+
 ## AI Service Health Checks
 
 The kubesentinel-ai Deployment includes a HEALTHCHECK that verifies the Flask service is responding:
