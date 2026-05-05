@@ -38,5 +38,6 @@ def get_db():
     if not hasattr(_local, "conn"):
         _local.conn = sqlite3.connect(DB_PATH, check_same_thread=False)
         _local.conn.row_factory = sqlite3.Row
+        _local.conn.execute("PRAGMA journal_mode=WAL;")
         _init_schema(_local.conn)
     return _local.conn

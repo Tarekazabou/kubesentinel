@@ -6,6 +6,7 @@ import (
 	"kubesentinel/internal/ai"
 	"kubesentinel/internal/forensics"
 	"kubesentinel/internal/llm"
+	"log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -276,6 +277,8 @@ func (ep *EventProcessor) getAIRiskScore(features BehavioralFeatures, event Secu
 	resp, err := ep.AIClient.DetectAnomaly(ctx, aiVec, provisionalRecord)
 	if err != nil {
 		fmt.Printf("[AI ERROR] %v → using fallback\n", err)
+		incidentID := fmt.Sprintf("%s-%s-%s", event.Container.Namespace, event.Container.PodName, event.Rule)
+		log.Printf("[WARN] anomaly staging failed for incident %s: %v", incidentID, err)
 		atomic.AddInt64(&ep.Metrics.ErrorCount, 1)
 		return ep.calculateRisk(event, features)
 	}
