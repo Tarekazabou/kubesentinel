@@ -41,7 +41,8 @@ KubeSentinel is designed to improve Kubernetes security across the full lifecycl
   - **Compliance Mapping**: Violations are automatically mapped to CIS Benchmarks, NIST SP 800-190, SOC2, and PCI-DSS (similar to kube-bench/Falco compliance mapping).
 - **Runtime Monitor**: Streams and processes Falco security events
 - **AI Behavioral Analyzer**: Flags anomalous behavior using Isolation Forest
-- **Forensic Vault**: Stores incident evidence with retention, max-size pruning, and optional gzip compression
+- **LLM Triage Staging Vault**: High-risk anomalies can be staged in SQLite and reviewed by Gemini before final confirmation
+- **Forensic Vault**: Stores confirmed incident evidence with retention, max-size pruning, and optional gzip compression
 - **Report Generator**: Produces Markdown, JSON, and HTML investigation outputs
 - **Gemini Enrichment (Optional)**: Adds runtime incident classification metadata and report narratives with redaction and deterministic fallback
 
@@ -164,6 +165,21 @@ gemini:
   api_key: ""
   model: "gemini-2.5-flash"
   timeout_seconds: 15
+```
+
+AI service environment variables:
+
+```bash
+STAGING_DB_PATH=/app/staging.db       # SQLite path for staging vault
+TRIAGE_POLL_INTERVAL=30               # Seconds between triage worker polls
+TRIAGE_BATCH_SIZE=10                  # Max incidents processed per poll cycle
+```
+
+Runtime triage flow:
+
+```text
+Falco event -> /predict score >= 0.5 -> staging vault (SQLite, pending)
+-> background triage worker -> confirmed (written to forensics JSON) or rejected (kept in staging)
 ```
 
 ## Documentation

@@ -26,6 +26,9 @@ type AnomalyRequest struct {
 	Features  FeatureVector `json:"features"`
 	Context   string        `json:"context"`
 	Timestamp string        `json:"timestamp"`
+	// Optional incident payload supplied by the producer so the AI service
+	// can stage the incident for triage without the producer writing files.
+	IncidentData interface{} `json:"incident_data,omitempty"`
 }
 
 // AnomalyResponse represents a response from the AI service
@@ -85,12 +88,13 @@ func (c *Client) HasAuthToken() bool {
 }
 
 // DetectAnomaly sends features to AI service for anomaly detection
-func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector) (*AnomalyResponse, error) {
+func (c *Client) DetectAnomaly(ctx context.Context, features FeatureVector, incident interface{}) (*AnomalyResponse, error) {
 	// Prepare request
 	request := AnomalyRequest{
-		Features:  features,
-		Context:   "runtime-monitoring",
-		Timestamp: time.Now().Format(time.RFC3339),
+		Features:     features,
+		Context:      "runtime-monitoring",
+		Timestamp:    time.Now().Format(time.RFC3339),
+		IncidentData: incident,
 	}
 
 	// Marshal to JSON

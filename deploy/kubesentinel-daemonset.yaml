@@ -565,6 +565,12 @@ spec:
                   optional: true
             - name: ENRICH_WITH_GEMINI
               value: "false"
+            - name: STAGING_DB_PATH
+              value: "/app/staging.db"
+            - name: TRIAGE_POLL_INTERVAL
+              value: "30"
+            - name: TRIAGE_BATCH_SIZE
+              value: "10"
           
           resources:
             requests:
