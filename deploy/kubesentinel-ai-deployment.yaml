@@ -8,7 +8,10 @@ metadata:
 type: Opaque
 stringData:
   GEMINI_API_KEY: ""
-  ENRICH_WITH_GEMINI: "true"
+  # When set to "true", the triage worker will call Gemini LLM to enrich incidents.
+  # Keep this set to "false" unless you have a valid GEMINI_API_KEY configured
+  # (e.g., via Kubernetes Secret). Flip to "true" after setting the secret.
+  ENRICH_WITH_GEMINI: "false"
   TRAINING_API_TOKEN: "9c542c438bcb773d0ef69dab1b13186e"
   GEMINI_RATE_LIMIT_PER_MINUTE: "25"
 

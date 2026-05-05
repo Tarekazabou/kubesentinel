@@ -99,7 +99,7 @@ class AnomalyDetector:
         self.load_or_create_model()
         self.warmup_complete = False
         self.warmup_samples = 0
-        self.warmup_threshold = int(os.getenv('WARMUP_THRESHOLD', '50'))
+        self.warmup_threshold = int(os.getenv('WARMUP_THRESHOLD', '10'))
     def load_or_create_model(self):
         """Load existing model or create new one"""
         if os.path.exists(self.model_path):
@@ -234,7 +234,19 @@ class AnomalyDetector:
             X = self.extract_features(features)
             X_scaled = self.scaler.transform(X)
 
-            if not self.warmup_complete:
+            # Bypass warm-up for clearly suspicious events so they are scored immediately.
+            try:
+                sensitive_val = float(features.get('sensitive_files', 0) or 0)
+            except Exception:
+                sensitive_val = 0
+            try:
+                net_val = float(features.get('network_count', 0) or 0)
+            except Exception:
+                net_val = 0
+
+            bypass_warmup = (sensitive_val > 0) or (net_val > 50)
+
+            if not self.warmup_complete and not bypass_warmup:
                 # === WARM-UP PHASE ===
                 # Treat as normal and incrementally improve the model
                 # We fit on a small batch including this sample to avoid single-point overfitting
@@ -776,14 +788,17 @@ def get_ai_incidents():
                     except Exception as gemini_err:
                         logger.warning(f"Gemini enhancement failed for {incident['id']}: {gemini_err}")
                 
-                # Optional ML enrichment (uncomment if you want fresh IsolationForest score)
+                # Optional ML enrichment (run only when metadata contains the expected 8 feature keys)
                 try:
-                    features = metadata
-                    with detector_lock:
-                        ml_result = detector.predict(features)
-                    incident["risk_score"] = round(ml_result["score"] * 100)
-                    if ml_result.get("reason"):
-                        incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
+                    if all(k in metadata for k in detector.feature_names):
+                        features = metadata
+                        with detector_lock:
+                            ml_result = detector.predict(features)
+                        incident["risk_score"] = round(ml_result["score"] * 100)
+                        if ml_result.get("reason"):
+                            incident["ai_analysis"] += f" ML Insight: {ml_result['reason']}"
+                    else:
+                        logger.debug(f"Skipping ML re-score for {incident['id']} — metadata missing feature keys")
                 except Exception:
                     pass
                 
