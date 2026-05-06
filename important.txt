@@ -1,0 +1,530 @@
+{
+  "ID": "1778030370298538523",
+  "Title": "KubeSentinel Forensic Investigation Report",
+  "GeneratedAt": "2026-05-06T01:19:30.298543841Z",
+  "TimeRange": {
+    "From": "2026-05-05T22:54:34.66445521Z",
+    "To": "2026-05-06T01:18:12.988104996Z"
+  },
+  "Summary": {
+    "TotalIncidents": 21,
+    "CriticalIncidents": 1,
+    "HighIncidents": 16,
+    "MediumIncidents": 4,
+    "LowIncidents": 0,
+    "AffectedContainers": 4,
+    "TopThreats": [
+      "Read sensitive file untrusted",
+      "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Drop and execute new binary in container"
+    ],
+    "OverallRisk": "critical"
+  },
+  "Incidents": [
+    {
+      "ID": "1778021715777588082",
+      "Timestamp": "2026-05-05T22:54:34.66445521Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:54:34.664455210: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320386724449",
+      "Timestamp": "2026-05-05T22:54:34.66445521Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:54:34.664455210: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778021715737962815",
+      "Timestamp": "2026-05-05T22:55:02.073044497Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:02.073044497: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320415490141",
+      "Timestamp": "2026-05-05T22:55:02.073044497Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:02.073044497: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778021715798919870",
+      "Timestamp": "2026-05-05T22:55:04.27102212Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:04.271022120: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320436314292",
+      "Timestamp": "2026-05-05T22:55:04.27102212Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:04.271022120: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778021722180812627",
+      "Timestamp": "2026-05-05T22:55:15.129838205Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:15.129838205: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320457937833",
+      "Timestamp": "2026-05-05T22:55:15.129838205Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:15.129838205: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778021722197314883",
+      "Timestamp": "2026-05-05T22:55:18.321888067Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:18.321888067: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320489201250",
+      "Timestamp": "2026-05-05T22:55:18.321888067Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:18.321888067: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778021722152099009",
+      "Timestamp": "2026-05-05T22:55:19.525401026Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:19.525401026: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778022320514634036",
+      "Timestamp": "2026-05-05T22:55:19.525401026Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "22:55:19.525401026: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778025660648173594",
+      "Timestamp": "2026-05-06T00:00:04.498965884Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "00:00:04.498965884: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778026153341877054",
+      "Timestamp": "2026-05-06T00:01:00.615149365Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "00:01:00.615149365: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778026153362941803",
+      "Timestamp": "2026-05-06T00:01:11.456724314Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "00:01:11.456724314: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030148963691978",
+      "Timestamp": "2026-05-06T01:10:37.034743875Z",
+      "Severity": "medium",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Description": "01:10:37.034743875: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:51292-\u003e192.168.49.2:22 lport=22 rport=51292 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 network trace(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030148943423146",
+      "Timestamp": "2026-05-06T01:10:37.255691906Z",
+      "Severity": "critical",
+      "Type": "Drop and execute new binary in container",
+      "Description": "01:10:37.255691906: Critical Executing binary not part of base image | proc_exe=mount proc_sname=sudo gparent=sshd proc_exe_ino_ctime=1778027903887516437 proc_exe_ino_mtime=1732219314000000000 proc_exe_ino_ctime_duration_proc_start=1933367086385 proc_cwd=/home/docker/ container_start_ts=1778027902685939027 evt_type=execve user=root user_uid=0 user_loginuid=1000 process=mount proc_exepath=/usr/bin/mount parent=sudo command=mount -t 9p -o dfltgid=997,dfltuid=1000,msize=262144,port=44823,trans=tcp,version=9p2000.L 192.168.49.1 /var/lib/kubesentinel terminal=0 exe_flags=EXE_WRITABLE|EXE_UPPER_LAYER container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030293028665818",
+      "Timestamp": "2026-05-06T01:15:48.901239512Z",
+      "Severity": "high",
+      "Type": "Read sensitive file untrusted",
+      "Description": "01:15:48.901239512: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=b6817b544cce container_name=k8s_victim-app_victim-app-8cd47ddf5-nwgbv_demo-app_f04d4530-3520-4fa9-9ddf-ac6c19921ff8_0 container_image_repository=victim-app container_image_tag=98b361f56a786f132b35992dc035e06263e5a571 k8s_pod_name=victim-app-8cd47ddf5-nwgbv k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-nwgbv",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030293094293473",
+      "Timestamp": "2026-05-06T01:18:09.845655366Z",
+      "Severity": "medium",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Description": "01:18:09.845655366: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35244-\u003e192.168.49.2:22 lport=22 rport=35244 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 network trace(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030293077902623",
+      "Timestamp": "2026-05-06T01:18:09.845657015Z",
+      "Severity": "medium",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Description": "01:18:09.845657015: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35244-\u003e192.168.49.2:22 lport=22 rport=35244 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 network trace(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    },
+    {
+      "ID": "1778030293058778887",
+      "Timestamp": "2026-05-06T01:18:12.988104996Z",
+      "Severity": "medium",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Description": "01:18:12.988104996: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35256-\u003e192.168.49.2:22 lport=22 rport=35256 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown",
+      "RiskScore": 1,
+      "Evidence": [
+        "1 syscall(s) captured",
+        "1 file operation(s) captured",
+        "1 network trace(s) captured",
+        "1 triggering event(s)"
+      ],
+      "Status": "open"
+    }
+  ],
+  "Timeline": [
+    {
+      "Timestamp": "2026-05-05T22:54:34.66445521Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:54:34.664455210: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:54:34.66445521Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:54:34.664455210: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:02.073044497Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:02.073044497: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:02.073044497Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:02.073044497: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:04.27102212Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:04.271022120: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:04.27102212Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:04.271022120: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:15.129838205Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:15.129838205: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:15.129838205Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:15.129838205: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:18.321888067Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:18.321888067: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:18.321888067Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:18.321888067: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:19.525401026Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:19.525401026: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-05T22:55:19.525401026Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "22:55:19.525401026: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=node ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=e0853d4db5e3 container_name=k8s_victim-app_victim-app-8cd47ddf5-khglh_demo-app_b3f39c08-aab0-4e29-a069-7a8bd75f0c7f_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-khglh k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-khglh"
+    },
+    {
+      "Timestamp": "2026-05-06T00:00:04.498965884Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "00:00:04.498965884: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq"
+    },
+    {
+      "Timestamp": "2026-05-06T00:01:00.615149365Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "00:01:00.615149365: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq"
+    },
+    {
+      "Timestamp": "2026-05-06T00:01:11.456724314Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "00:01:11.456724314: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=520ef1257b76 container_name=k8s_victim-app_victim-app-8cd47ddf5-mwtsq_demo-app_59e825f3-2301-495d-85f4-ac8afed2817d_0 container_image_repository=victim-app container_image_tag=fb102b2b63d17e93a4f05b2b17dbe30c146a9014 k8s_pod_name=victim-app-8cd47ddf5-mwtsq k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-mwtsq"
+    },
+    {
+      "Timestamp": "2026-05-06T01:10:37.034743875Z",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Severity": "medium",
+      "Description": "01:10:37.034743875: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:51292-\u003e192.168.49.2:22 lport=22 rport=51292 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown"
+    },
+    {
+      "Timestamp": "2026-05-06T01:10:37.255691906Z",
+      "Type": "Drop and execute new binary in container",
+      "Severity": "critical",
+      "Description": "01:10:37.255691906: Critical Executing binary not part of base image | proc_exe=mount proc_sname=sudo gparent=sshd proc_exe_ino_ctime=1778027903887516437 proc_exe_ino_mtime=1732219314000000000 proc_exe_ino_ctime_duration_proc_start=1933367086385 proc_cwd=/home/docker/ container_start_ts=1778027902685939027 evt_type=execve user=root user_uid=0 user_loginuid=1000 process=mount proc_exepath=/usr/bin/mount parent=sudo command=mount -t 9p -o dfltgid=997,dfltuid=1000,msize=262144,port=44823,trans=tcp,version=9p2000.L 192.168.49.1 /var/lib/kubesentinel terminal=0 exe_flags=EXE_WRITABLE|EXE_UPPER_LAYER container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown"
+    },
+    {
+      "Timestamp": "2026-05-06T01:15:48.901239512Z",
+      "Type": "Read sensitive file untrusted",
+      "Severity": "high",
+      "Description": "01:15:48.901239512: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=\u003cNA\u003e ggparent=containerd-shim gggparent=\u003cNA\u003e evt_type=openat user=root user_uid=0 user_loginuid=-1 process=cat proc_exepath=/usr/bin/cat parent=sh command=cat /etc/shadow terminal=0 container_id=b6817b544cce container_name=k8s_victim-app_victim-app-8cd47ddf5-nwgbv_demo-app_f04d4530-3520-4fa9-9ddf-ac6c19921ff8_0 container_image_repository=victim-app container_image_tag=98b361f56a786f132b35992dc035e06263e5a571 k8s_pod_name=victim-app-8cd47ddf5-nwgbv k8s_ns_name=demo-app",
+      "Container": "victim-app-8cd47ddf5-nwgbv"
+    },
+    {
+      "Timestamp": "2026-05-06T01:18:09.845655366Z",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Severity": "medium",
+      "Description": "01:18:09.845655366: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35244-\u003e192.168.49.2:22 lport=22 rport=35244 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown"
+    },
+    {
+      "Timestamp": "2026-05-06T01:18:09.845657015Z",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Severity": "medium",
+      "Description": "01:18:09.845657015: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35244-\u003e192.168.49.2:22 lport=22 rport=35244 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown"
+    },
+    {
+      "Timestamp": "2026-05-06T01:18:12.988104996Z",
+      "Type": "Redirect STDOUT/STDIN to Network Connection in Container",
+      "Severity": "medium",
+      "Description": "01:18:12.988104996: Notice Redirect stdout/stdin to network connection | gparent=\u003cNA\u003e ggparent=\u003cNA\u003e gggparent=\u003cNA\u003e fd.sip=192.168.49.2 connection=192.168.49.1:35256-\u003e192.168.49.2:22 lport=22 rport=35256 fd_type=ipv4 fd_proto=tcp evt_type=dup2 user=root user_uid=0 user_loginuid=-1 process=sshd proc_exepath= parent=\u003cNA\u003e command=sshd terminal=0 container_id=6cd5b1f345c3 container_name=\u003cNA\u003e container_image_repository=\u003cNA\u003e container_image_tag=\u003cNA\u003e k8s_pod_name=\u003cNA\u003e k8s_ns_name=\u003cNA\u003e",
+      "Container": "unknown"
+    }
+  ],
+  "Recommendations": [
+    {
+      "Priority": "critical",
+      "Title": "Contain critical workloads",
+      "Description": "Isolate affected pods, rotate credentials, and investigate process execution history immediately.",
+      "Impact": "high",
+      "Effort": "medium"
+    },
+    {
+      "Priority": "high",
+      "Title": "Harden runtime policies",
+      "Description": "Restrict container capabilities, enforce read-only roots, and tighten seccomp/AppArmor profiles.",
+      "Impact": "high",
+      "Effort": "medium"
+    }
+  ],
+  "Narrative": "",
+  "LLMFindings": null,
+  "LLMRecommendations": null,
+  "Statistics": {
+    "TotalEvents": 21,
+    "EventsByType": {
+      "Drop and execute new binary in container": 1,
+      "Read sensitive file untrusted": 16,
+      "Redirect STDOUT/STDIN to Network Connection in Container": 4
+    },
+    "EventsBySeverity": {
+      "critical": 1,
+      "high": 16,
+      "medium": 4
+    },
+    "EventsByContainer": {
+      "unknown": 5,
+      "victim-app-8cd47ddf5-khglh": 12,
+      "victim-app-8cd47ddf5-mwtsq": 3,
+      "victim-app-8cd47ddf5-nwgbv": 1
+    },
+    "AverageRiskScore": 1,
+    "DetectionEfficiency": 1

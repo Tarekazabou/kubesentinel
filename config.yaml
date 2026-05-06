@@ -15,7 +15,7 @@ ai:
   model_path: "./ai-module/models/baseline.pkl"
   threshold: 0.75
   health_check_interval: "30s"
-  training_api_token: ""
+  training_api_token: "9c542c438bcb773d0ef69dab1b13186e"
 
 forensics:
   storage_path: "/var/lib/kubesentinel/forensics"
