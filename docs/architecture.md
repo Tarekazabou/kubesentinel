@@ -132,6 +132,14 @@ The system extracts these behavioral features:
 - 100 decision trees
 - Incremental learning capability
 
+**Paths and Deployment Notes**
+
+- **Staging DB path**: the Python AI service uses a local SQLite staging DB at `/var/lib/kubesentinel/staging.db` by default.
+- **Forensics storage**: forensic JSON records are stored under `/var/lib/kubesentinel/forensics` so the Go monitor and the AI service share the same host-mounted directory.
+- **Kubernetes mounts**: deployments mount the host paths using `hostPath` (type: `DirectoryOrCreate`) to ensure the directories exist inside pods.
+- **Minikube development**: for live sync into Minikube use `minikube mount /var/lib/kubesentinel:/var/lib/kubesentinel &` on the host to mirror the directory into the VM.
+- **LLM/Triage note**: LLM enrichment is opt-in; `ENRICH_WITH_GEMINI` defaults to `false` unless a valid `GEMINI_API_KEY` is provided.
+
 **Detection Flow**:
 1. Extract features from security events
 2. Normalize features using StandardScaler
@@ -168,6 +176,8 @@ forensics/
 ├── 20240215_143022_1234567890.json  # Timestamp_ID.json
 ├── 20240215_145533_1234567891.json
 └── 20240215_151045_1234567892.json
+
+The vault stores these files on-disk under the configured storage path (default: `/var/lib/kubesentinel/forensics`) so runtime agents and sidecar/AI components can access the same evidence files when deployed on a host or via a minikube mount.
 ```
 
 **Record Contents**:
